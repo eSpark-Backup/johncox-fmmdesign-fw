@@ -65,7 +65,7 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
     return rc;
 }
 
-void LocalDB::insert(const char *tableName, std::map<std::string, std::string> data) {
+int LocalDB::insert(const char *tableName, std::map<std::string, std::string> data) {
     std::string columns;
     std::string values;
 
@@ -85,26 +85,119 @@ void LocalDB::insert(const char *tableName, std::map<std::string, std::string> d
     snprintf(sql, sizeof(sql), "INSERT INTO %s (%s) VALUES (%s);", tableName, columns.c_str(), values.c_str());
 
     // Execute the INSERT statement
-    executeSQL(sql, nullptr);
+    return executeSQL(sql, nullptr);
 }
 
-// std::vector<std::map<std::string, std::string>> LocalDB::search(const char *tableName, const char *condition) {
-//     std::vector<std::map<std::string, std::string>> results;
-//     std::string sql = "SELECT * FROM " + std::string(tableName);
-//     if (condition != nullptr) {
-//         sql += " WHERE " + std::string(condition);
-//     }
-//     executeSQL(sql.c_str(), [](void *data, int argc, char **argv, char **azColName) {
-//         std::map<std::string, std::string> row;
-//         for (int i = 0; i < argc; i++) {
-//             row[azColName[i]] = argv[i] ? argv[i] : "NULL";
-//         }
-//         std::vector<std::map<std::string, std::string>> *results = static_cast<std::vector<std::map<std::string, std::string>>*>(data);
-//         results->push_back(row);
-//         return 0;
-//     }, &results);
-//     return results;
-// }
+void LocalDB::constructCondition(std::stringstream& condition, const std::pair<const char*, std::string>& pair) {
+    condition << pair.first << "='" << pair.second << "'";
+}
+
+template<typename... Args>
+void LocalDB::constructCondition(std::stringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) {
+    condition << " AND " << pair.first << "='" << pair.second << "'";
+    constructCondition(condition, std::forward<Args>(args)...);
+}
+
+template<typename... Args>
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::initializer_list<const char*> select, Args&&... where) {
+    std::vector<std::map<std::string, std::string>> results;
+
+    std::stringstream condition;
+    if constexpr (sizeof...(where) > 0) {
+        constructCondition(condition, std::forward<Args>(where)...);
+    }
+
+    std::string selectStr = "";
+    for (const char* key : select) {
+        selectStr += (selectStr.empty() ? "" : ", ") + std::string(key);
+    }
+
+    std::string sql = "SELECT " + selectStr + " FROM " + std::string(tableName);
+    if (!condition.str().empty()) {
+        sql += " WHERE " + condition.str();
+    }
+
+    executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
+        std::map<std::string, std::string> row;
+        for (int i = 0; i < argc; i++) {
+            row[azColName[i]] = argv[i] ? argv[i] : "NULL";
+        }
+        static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
+        return 0;
+    }, &results);
+
+    return results;
+}
+
+template<typename... Args>
+int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, Args&&... where) {
+    std::stringstream updateValues;
+    constructUpdateValues(updateValues, update);
+
+    std::stringstream condition;
+    constructCondition(condition, std::forward<Args>(where)...);
+
+    std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
+    if (!condition.str().empty()) {
+        sql += " WHERE " + condition.str();
+    }
+
+    return executeSQL(sql.c_str(), nullptr);
+}
+
+template<typename... Args>
+void LocalDB::constructUpdateValues(std::stringstream& updateValues, const std::map<std::string, std::string>& values) {
+    for (const auto& pair : values) {
+        updateValues << pair.first << "='" << pair.second << "',";
+    }
+    // Remove the trailing comma
+    std::string valuesStr = updateValues.str();
+    if (!valuesStr.empty()) {
+        valuesStr.pop_back();
+    }
+    updateValues.str(valuesStr);
+}
+
+template<typename... Args>
+int LocalDB::remove(const char* tableName, Args&&... args) {
+    std::stringstream condition;
+    constructDeleteCondition(condition, std::forward<Args>(args)...);
+
+    std::string sql = "DELETE FROM " + std::string(tableName);
+    if (!condition.str().empty()) {
+        sql += " WHERE " + condition.str();
+    }
+
+    return executeSQL(sql.c_str(), nullptr);
+}
+
+template<typename... Args>
+void LocalDB::constructDeleteCondition(std::stringstream& condition, Args&&... args) {
+    if constexpr (sizeof...(args) > 0) {
+        condition << "1=1 AND ";
+        ((condition << args.first << "='" << args.second << "' AND "), ...);
+    }
+    // Remove the trailing "AND"
+    std::string conditionStr = condition.str();
+    if (!conditionStr.empty()) {
+        conditionStr = conditionStr.substr(0, conditionStr.size() - 5);
+    }
+    condition.str(conditionStr);
+}
+
+int LocalDB::remove(const char* tableName) {
+    std::string sql = "DROP TABLE IF EXISTS " + std::string(tableName);
+    return executeSQL(sql.c_str());
+}
+
+void LocalDB::printLastError() {
+    if (db) {
+        const char* errorMsg = sqlite3_errmsg(db);
+        ESP_LOGE(TAG, "Last error: %s", errorMsg ? errorMsg : "Unknown error");
+    } else {
+        ESP_LOGE(TAG, "No database connection.");
+    }
+}
 
 void testDatabases() 
 {
@@ -145,7 +238,7 @@ void testDatabases()
 
     // Insert data into tables using insert method
     std::map<std::string, std::string> sensorData = {
-        {"engine_id", "1001"},
+        {"engine_id", "1003"},
         {"sensor_data_id", "2001"},
         {"fuel_management_data_id", "3001"},
         {"timestamp_unix", "1646659900"}
@@ -161,7 +254,7 @@ void testDatabases()
     db.insert("SensorsDataBlock", sensorsDataBlock);
 
     std::map<std::string, std::string> configurations = {
-        {"engine_id", "1001"},
+        {"engine_id", "1003"},
         {"time_interval", "60"},
         {"status", "1"}
     };
@@ -178,21 +271,17 @@ void testDatabases()
     std::map<std::string, std::string> enginesData;
     db.insert("Engines", enginesData);
 
-    // Read data from tables
-    // db.executeSQL("SELECT * FROM SensorData", printCallback);
-    // db.executeSQL("SELECT * FROM SensorsDataBlock", printCallback);
-    // db.executeSQL("SELECT * FROM Configurations", printCallback);
-    // db.executeSQL("SELECT * FROM FuelManagement", printCallback);
-    // db.executeSQL("SELECT * FROM Engines", printCallback);
+    db.remove("SensorData");
 
-    db.search("SensorData", "");
-    db.search("SensorsDataBlock", "");
-    db.search("Configurations", "");
-    db.search("FuelManagement", "");
-    db.search("Engines", "");
+    // Search for data in SensorData table where engine_id is '1003'
+    // auto searchResults = db.search("SensorData", {"engine_id", "sensor_data_id"}, std::make_pair("engine_id", "1003"));
 
-    // Search for data in SensorData table
-    std::vector<std::map<std::string, std::string>> searchResults = db.search("SensorData", "engine_id  = '1001'");
+    std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
+    db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
+
+    auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
+
+    // // Display the search results
     for (const auto& result : searchResults) {
         for (const auto& pair : result) {
             printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
@@ -200,36 +289,18 @@ void testDatabases()
         printf("\n");
     }
 
-    db.close();
-}
+    db.remove("SensorData", std::make_pair("engine_id", "1005"));
+    auto results = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
 
-template<typename T>
-void LocalDB::constructCondition(std::stringstream& condition, T&& key, T&& value) {
-    condition << key << " = '" << value << "'";
-}
-
-template<typename T, typename... Args>
-void LocalDB::constructCondition(std::stringstream& condition, T&& key, T&& value, Args&&... args) {
-    condition << key << " = '" << value << "' AND ";
-    constructCondition(condition, std::forward<Args>(args)...);
-}
-
-template<typename... Args>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, Args&&... args) {
-    std::vector<std::map<std::string, std::string>> results;
-
-    std::stringstream condition;
-    constructCondition(condition, std::forward<Args>(args)...);
-
-    std::string sql = "SELECT * FROM " + std::string(tableName) + " WHERE " + condition.str();
-    executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
-        std::map<std::string, std::string> row;
-        for (int i = 0; i < argc; i++) {
-            row[azColName[i]] = argv[i] ? argv[i] : "NULL";
+    // // Display the search results
+    for (const auto& result : results) {
+        for (const auto& pair : result) {
+            printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
         }
-        static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
-        return 0;
-    });
+        printf("\n");
+    }
 
-    return results;
+    db.printLastError();
+
+    db.close();
 }
