@@ -79,6 +79,10 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "thread": "cpp",
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "credentials.h": "c",
+        "esp_tls.h": "c",
+        "esp_https_server.h": "c",
+        "esp_http_server.h": "c"
     }
 }
