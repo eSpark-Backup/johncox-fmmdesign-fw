@@ -3,14 +3,11 @@
 
 #include <esp_https_server.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+class HttpServer
+{
+    public:
+        static void start(void);
 
-void httpsServerStart(void);
-
-#ifdef __cplusplus
-}
-#endif
+};
 
 #endif // HTTP_SERVER_H

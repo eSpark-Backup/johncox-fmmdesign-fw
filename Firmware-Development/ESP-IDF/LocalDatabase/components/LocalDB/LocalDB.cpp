@@ -6,20 +6,19 @@
 
 static const char *TAG = "LocalDB";
 
-int printCallback(void *data, int argc, char **argv, char **azColName) {
-    int i;
-    printf("%s: \n", (const char*)data);
-    for (i = 0; i < argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
-    return 0;
-}
+LocalDB* LocalDB::instance = nullptr;
 
 LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {}
 
 LocalDB::~LocalDB() {
     close();
+}
+
+LocalDB& LocalDB::getInstance(const char *filename) {
+    if (!instance) {
+        instance = new LocalDB(filename);
+    }
+    return *instance;
 }
 
 void LocalDB::init() {
@@ -129,6 +128,30 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
     return results;
 }
 
+// Template specialization for search function without where conditions
+template<>
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::initializer_list<const char*> select) {
+    std::vector<std::map<std::string, std::string>> results;
+
+    std::string selectStr = "";
+    for (const char* key : select) {
+        selectStr += (selectStr.empty() ? "" : ", ") + std::string(key);
+    }
+
+    std::string sql = "SELECT " + selectStr + " FROM " + std::string(tableName);
+
+    executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
+        std::map<std::string, std::string> row;
+        for (int i = 0; i < argc; i++) {
+            row[azColName[i]] = argv[i] ? argv[i] : "NULL";
+        }
+        static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
+        return 0;
+    }, &results);
+
+    return results;
+}
+
 template<typename... Args>
 int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, Args&&... where) {
     std::stringstream updateValues;
@@ -202,8 +225,11 @@ void LocalDB::printLastError() {
 void testDatabases() 
 {
     static const char* filename = "/spiffs/test.db";
-    LocalDB db(filename);
+    LocalDB& db = LocalDB::getInstance(filename);
     db.init();
+
+    unlink("/spiffs/test.db");
+
     if (!db.open()) {
         return;
     }
@@ -211,56 +237,48 @@ void testDatabases()
     // Create SensorData table
     db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                     "engine_id INTEGER NOT NULL, "
-                                    "sensor_data_id INTEGER NOT NULL, "
-                                    "fuel_management_data_id INTEGER NOT NULL, "
-                                    "timestamp_unix INTEGER NOT NULL");
-
-    // Create SensorsDataBlock table
-    db.createTable("SensorsDataBlock", "id INTEGER PRIMARY KEY NOT NULL, "
-                                         "fuel_supply FLOAT NOT NULL, "
-                                         "fuel_return FLOAT NOT NULL, "
-                                         "temperature_supply FLOAT NOT NULL, "
-                                         "temperature_return FLOAT NOT NULL");
+                                    "timestamp_unix INTEGER NOT NULL, "
+                                    "fuel_supply FLOAT NOT NULL, "
+                                    "fuel_return FLOAT NOT NULL, "
+                                    "temperature_supply FLOAT NOT NULL, "
+                                    "temperature_return FLOAT NOT NULL");
 
     // Create Configurations table
     db.createTable("Configurations", "engine_id INTEGER NOT NULL, "
-                                       "time_interval INTEGER NOT NULL, "
-                                       "status BOOLEAN NOT NULL");
+                                        "time_interval INTEGER NOT NULL, "
+                                        "status BOOLEAN NOT NULL");
 
     // Create FuelManagement table
     db.createTable("FuelManagement", "id INTEGER PRIMARY KEY NOT NULL, "
-                                       "total_fuel_burned INTEGER NOT NULL, "
-                                       "remaining_fuel INTEGER NOT NULL, "
-                                       "distance_to_empty INTEGER NOT NULL");
+                                        "engine_id INTEGER NOT NULL, "  
+                                        "total_fuel_burned INTEGER NOT NULL, "
+                                        "remaining_fuel INTEGER NOT NULL, "
+                                        "distance_to_empty INTEGER NOT NULL");
 
     // Create Engines table
-    db.createTable("Engines", "id INTEGER PRIMARY KEY NOT NULL");
+    db.createTable("Engines", "id INTEGER PRIMARY KEY NOT NULL,"
+                                "name TEXT");
 
     // Insert data into tables using insert method
     std::map<std::string, std::string> sensorData = {
         {"engine_id", "1003"},
-        {"sensor_data_id", "2001"},
-        {"fuel_management_data_id", "3001"},
-        {"timestamp_unix", "1646659900"}
-    };
-    db.insert("SensorData", sensorData);
-
-    std::map<std::string, std::string> sensorsDataBlock = {
+        {"timestamp_unix", "1646659900"},
         {"fuel_supply", "10.5"},
         {"fuel_return", "8.3"},
         {"temperature_supply", "25.6"},
         {"temperature_return", "30.2"}
     };
-    db.insert("SensorsDataBlock", sensorsDataBlock);
+    db.insert("SensorData", sensorData);
 
     std::map<std::string, std::string> configurations = {
-        {"engine_id", "1003"},
+        {"engine_id", "1002"},
         {"time_interval", "60"},
         {"status", "1"}
     };
     db.insert("Configurations", configurations);
 
     std::map<std::string, std::string> fuelManagement = {
+        {"engine_id", "1001"},
         {"total_fuel_burned", "100"},
         {"remaining_fuel", "50"},
         {"distance_to_empty", "200"}
@@ -268,18 +286,20 @@ void testDatabases()
     db.insert("FuelManagement", fuelManagement);
 
     // Insert data into Engines table
-    std::map<std::string, std::string> enginesData;
+    std::map<std::string, std::string> enginesData = {
+        {"name", "Engine M1"},
+    };
     db.insert("Engines", enginesData);
 
-    db.remove("SensorData");
+    // db.remove("SensorData");
 
     // Search for data in SensorData table where engine_id is '1003'
-    // auto searchResults = db.search("SensorData", {"engine_id", "sensor_data_id"}, std::make_pair("engine_id", "1003"));
+    auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1003"));
 
-    std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
-    db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
+    // std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
+    // db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
 
-    auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
+    // auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
 
     // // Display the search results
     for (const auto& result : searchResults) {
@@ -289,18 +309,28 @@ void testDatabases()
         printf("\n");
     }
 
-    db.remove("SensorData", std::make_pair("engine_id", "1005"));
-    auto results = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
+    // db.remove("SensorData", std::make_pair("engine_id", "1005"));
+    // auto results = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
 
-    // // Display the search results
-    for (const auto& result : results) {
-        for (const auto& pair : result) {
-            printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
-        }
-        printf("\n");
+    // // // Display the search results
+    // for (const auto& result : results) {
+    //     for (const auto& pair : result) {
+    //         printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
+    //     }
+    //     printf("\n");
+    // }
+
+    // db.printLastError();
+
+    // db.close();
+}
+
+int printCallback(void *data, int argc, char **argv, char **azColName) {
+    int i;
+    printf("%s: \n", (const char*)data);
+    for (i = 0; i < argc; i++) {
+        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
     }
-
-    db.printLastError();
-
-    db.close();
+    printf("\n");
+    return 0;
 }

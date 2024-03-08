@@ -1,4 +1,4 @@
-idf_component_register(SRCS	"HttpServer.c"
+idf_component_register(SRCS	"HttpServer.cpp"
 						INCLUDE_DIRS "."
                         REQUIRES
                             nvs_flash
@@ -7,6 +7,8 @@ idf_component_register(SRCS	"HttpServer.c"
                             esp_netif
                             esp_wifi
                             spiffs
+                            json
+                            LocalDB
 
                             EMBED_TXTFILES 
                             "favicon.ico"

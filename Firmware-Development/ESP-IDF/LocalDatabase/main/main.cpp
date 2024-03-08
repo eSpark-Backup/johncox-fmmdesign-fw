@@ -5,7 +5,7 @@
 #include "nvs_flash.h"
 #include "LocalDB.hpp"
 #include "Storage.hpp"
-#include "HttpServer.h"
+#include "HttpServer.hpp"
 #include "wifi.h"
 
 static const char *TAG = "app_main";
@@ -20,10 +20,15 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
 
-    // Storage::init();
-    // testDatabases();
-    // Storage::deinit();
+    Storage::init();
+    LocalDB& db = LocalDB::getInstance();
+    db.init();
+    if (!db.open()) {
+        return;
+    }
+    testDatabases();
+
     wifi_init_sta();
-    httpsServerStart();
+    HttpServer::start();
     ESP_LOGI(TAG, "SPIFFS unmounted");
 }
