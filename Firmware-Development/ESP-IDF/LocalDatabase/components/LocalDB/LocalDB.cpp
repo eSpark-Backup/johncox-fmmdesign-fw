@@ -158,12 +158,24 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
     constructUpdateValues(updateValues, update);
 
     std::stringstream condition;
-    constructCondition(condition, std::forward<Args>(where)...);
+    if constexpr (sizeof...(where) > 0) {
+        constructCondition(condition, std::forward<Args>(where)...);
+    }
 
     std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
     if (!condition.str().empty()) {
         sql += " WHERE " + condition.str();
     }
+
+    return executeSQL(sql.c_str(), nullptr);
+}
+
+template<>
+int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update) {
+    std::stringstream updateValues;
+    constructUpdateValues(updateValues, update);
+
+    std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
 
     return executeSQL(sql.c_str(), nullptr);
 }
@@ -259,6 +271,10 @@ void testDatabases()
     db.createTable("Engines", "id INTEGER PRIMARY KEY NOT NULL,"
                                 "name TEXT");
 
+    db.createTable("UserCredentials", "device_id INTEGER PRIMARY KEY,"
+                                    "username TEXT NOT NULL,"
+                                    "password TEXT NOT NULL");
+
     // Insert data into tables using insert method
     std::map<std::string, std::string> sensorData = {
         {"engine_id", "1003"},
@@ -296,8 +312,8 @@ void testDatabases()
     // Search for data in SensorData table where engine_id is '1003'
     auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1003"));
 
-    // std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
-    // db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
+    std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
+    db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
 
     // auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
 

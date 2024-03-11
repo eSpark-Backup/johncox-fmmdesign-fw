@@ -36,6 +36,7 @@ private:
     sqlite3 *db;
 
     // Other methods...
+    // void constructCondition(std::stringstream& condition){}
     void constructCondition(std::stringstream& condition, const std::pair<const char*, std::string>& pair);
 
     template<typename... Args>

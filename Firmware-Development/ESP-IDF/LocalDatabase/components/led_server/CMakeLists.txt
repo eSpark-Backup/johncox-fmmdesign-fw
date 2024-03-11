@@ -8,6 +8,7 @@ idf_component_register(SRCS	"HttpServer.cpp"
                             esp_wifi
                             spiffs
                             json
+                            UserManager
                             LocalDB
 
                             EMBED_TXTFILES 
