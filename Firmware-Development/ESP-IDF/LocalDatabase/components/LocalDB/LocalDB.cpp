@@ -87,31 +87,34 @@ int LocalDB::insert(const char *tableName, std::map<std::string, std::string> da
     return executeSQL(sql, nullptr);
 }
 
-void LocalDB::constructCondition(std::stringstream& condition, const std::pair<const char*, std::string>& pair) {
+void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair) {
     condition << pair.first << "='" << pair.second << "'";
 }
 
 template<typename... Args>
-void LocalDB::constructCondition(std::stringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) {
+void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) {
     condition << " AND " << pair.first << "='" << pair.second << "'";
     constructCondition(condition, std::forward<Args>(args)...);
 }
 
 template<typename... Args>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::initializer_list<const char*> select, Args&&... where) {
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select, Args&&... where) {
     std::vector<std::map<std::string, std::string>> results;
 
-    std::stringstream condition;
+    std::ostringstream condition;
     if constexpr (sizeof...(where) > 0) {
         constructCondition(condition, std::forward<Args>(where)...);
     }
 
-    std::string selectStr = "";
-    for (const char* key : select) {
-        selectStr += (selectStr.empty() ? "" : ", ") + std::string(key);
+    std::ostringstream selectStr;
+    for (size_t i = 0; i < select.size(); ++i) {
+        if (i != 0) {
+            selectStr << ", ";
+        }
+        selectStr << select[i];
     }
 
-    std::string sql = "SELECT " + selectStr + " FROM " + std::string(tableName);
+    std::string sql = "SELECT " + selectStr.str() + " FROM " + std::string(tableName);
     if (!condition.str().empty()) {
         sql += " WHERE " + condition.str();
     }
@@ -130,15 +133,18 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
 
 // Template specialization for search function without where conditions
 template<>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::initializer_list<const char*> select) {
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select) {
     std::vector<std::map<std::string, std::string>> results;
 
-    std::string selectStr = "";
-    for (const char* key : select) {
-        selectStr += (selectStr.empty() ? "" : ", ") + std::string(key);
+    std::ostringstream selectStr;
+    for (size_t i = 0; i < select.size(); ++i) {
+        if (i != 0) {
+            selectStr << ", ";
+        }
+        selectStr << select[i];
     }
 
-    std::string sql = "SELECT " + selectStr + " FROM " + std::string(tableName);
+    std::string sql = "SELECT " + selectStr.str() + " FROM " + std::string(tableName);
 
     executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
         std::map<std::string, std::string> row;
@@ -157,7 +163,7 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
     std::stringstream updateValues;
     constructUpdateValues(updateValues, update);
 
-    std::stringstream condition;
+    std::ostringstream condition;
     if constexpr (sizeof...(where) > 0) {
         constructCondition(condition, std::forward<Args>(where)...);
     }
@@ -196,7 +202,9 @@ void LocalDB::constructUpdateValues(std::stringstream& updateValues, const std::
 template<typename... Args>
 int LocalDB::remove(const char* tableName, Args&&... args) {
     std::stringstream condition;
-    constructDeleteCondition(condition, std::forward<Args>(args)...);
+    if constexpr (sizeof...(args) > 0) {
+        constructDeleteCondition(condition, std::forward<Args>(args)...);
+    }
 
     std::string sql = "DELETE FROM " + std::string(tableName);
     if (!condition.str().empty()) {
@@ -204,6 +212,12 @@ int LocalDB::remove(const char* tableName, Args&&... args) {
     }
 
     return executeSQL(sql.c_str(), nullptr);
+}
+
+template<>
+int LocalDB::remove(const char* tableName) {
+    std::string sql = "DROP TABLE IF EXISTS " + std::string(tableName);
+    return executeSQL(sql.c_str());
 }
 
 template<typename... Args>
@@ -218,11 +232,6 @@ void LocalDB::constructDeleteCondition(std::stringstream& condition, Args&&... a
         conditionStr = conditionStr.substr(0, conditionStr.size() - 5);
     }
     condition.str(conditionStr);
-}
-
-int LocalDB::remove(const char* tableName) {
-    std::string sql = "DROP TABLE IF EXISTS " + std::string(tableName);
-    return executeSQL(sql.c_str());
 }
 
 void LocalDB::printLastError() {

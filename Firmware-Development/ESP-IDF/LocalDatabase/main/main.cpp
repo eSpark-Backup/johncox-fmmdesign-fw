@@ -30,5 +30,7 @@ extern "C" void app_main()
 
     wifi_init_sta();
     HttpServer::start();
+    // db.remove("UserCredentials", std::make_pair("device_id", "1"), std::make_pair("username", username.c_str()));
+    // db.remove("SensorData", std::make_pair("device_id", "1"));
     ESP_LOGI(TAG, "SPIFFS unmounted");
 }

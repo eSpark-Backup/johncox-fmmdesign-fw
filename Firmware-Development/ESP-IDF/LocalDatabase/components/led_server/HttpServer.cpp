@@ -49,6 +49,33 @@ char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::st
     return jsonStr;
 }
 
+static std::map<std::string, std::string> getQueryParameters(const char* queryString) {
+    std::map<std::string, std::string> parameters;
+
+    char* token;
+    char* queryCopy = strdup(queryString);  // Create a copy of queryString to avoid modifying the original
+
+    token = strtok(queryCopy, "&");
+    while (token != nullptr) {
+        char* separator = strchr(token, '=');
+        if (separator != nullptr) {
+            *separator = '\0';  // Split the token into parameter and value
+            std::string key(token);
+            std::string value(separator + 1);
+            parameters[key] = value;
+        }
+        token = strtok(nullptr, "&");
+    }
+
+    free(queryCopy);  // Free the allocated memory for the copy
+    return parameters;
+}
+
+// Check if a specific key exists in the map
+bool hasKey(const std::map<std::string, std::string>& parameters, const std::string& key) {
+    return parameters.find(key) != parameters.end();
+}
+
 /* An HTTP GET handler */
 esp_err_t helloworld(httpd_req_t *req)
 {
@@ -65,7 +92,7 @@ static esp_err_t getData(httpd_req_t *req)
 
     char query[256];
     char engineId[10];
-    const char* response = "<!DOCTYPE html> <html> <body> <h1>Wrong Parameters</h1></body> </html>";
+    const char* response = "Wrong Parameters";
 
     esp_err_t ret = ESP_FAIL;
 
@@ -144,8 +171,8 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
 
     char query[256];
     char engineId[10];
-    const char* responseSuccess = "<!DOCTYPE html> <html> <body> <h1>Configurations updated successfully</h1></body> </html>";
-    const char* responseFail = "<!DOCTYPE html> <html> <body> <h1>Configurations update failed</h1></body> </html>";
+    const char* responseSuccess = "Configurations updated successfully";
+    const char* responseFail = "Configurations update failed";
     const char* response = responseSuccess;
     std::map<std::string, std::string> updateValues;
 
@@ -274,57 +301,35 @@ void HttpServer::start(void)
 /* Handler function to create a new user */
 static esp_err_t createUser(httpd_req_t *req) 
 {
-    const char* tableName = "Users";
-
     char query[256];
-    char username[20];
-    char password[20];
-    const char* responseSuccess = "<!DOCTYPE html> <html> <body> <h1>User created successfully</h1></body> </html>";
-    const char* responseFail = "<!DOCTYPE html> <html> <body> <h1>User creation failed</h1></body> </html>";
-    const char* response = responseSuccess;
+    const char* responseSuccess = "User created successfully";
+    const char* responseFail = "User creation failed";
+    const char* response = responseFail;
 
     esp_err_t ret = ESP_FAIL;
 
     // Get the query parameters from the request
     ret = httpd_req_get_url_query_str(req, query, sizeof(query));
+
     if (ret == ESP_OK) 
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        // Parse the query parameters
-        ret = httpd_query_key_value(query, "username", username, sizeof(username));
-        if (ret != ESP_OK) 
+        auto queryParams = getQueryParameters(query);
+        if (!queryParams.empty())
         {
-            ESP_LOGE(TAG, "Error parsing username: %s", esp_err_to_name(ret));
-            response = responseFail;
-        }
-
-        ret = httpd_query_key_value(query, "password", password, sizeof(password));
-        if (ret != ESP_OK) 
-        {
-            ESP_LOGE(TAG, "Error parsing password: %s", esp_err_to_name(ret));
-            response = responseFail;
-        }
-
-        if (ret == ESP_OK) 
-        {
-            // Insert new user into the database
-            LocalDB& db = LocalDB::getInstance();
-            std::map<std::string, std::string> values = {
-                {"username", username},
-                {"password", password}
-            };
-            ret = db.insert(tableName, values);
-            if (ret != ESP_OK) {
-                ESP_LOGE(TAG, "Error inserting new user into database");
-                response = responseFail;
+            if (hasKey(queryParams, "username") && hasKey(queryParams, "password"))
+            {
+                if (ESP_OK == UserCredentialsManager::createUser(queryParams["username"], queryParams["password"]))
+                {
+                    response = responseSuccess;
+                }
             }
         }
     }
     else
     {
         ESP_LOGE(TAG, "Error parsing query parameters: %s", esp_err_to_name(ret));
-        response = responseFail;
     }
 
     // Send response
@@ -336,13 +341,10 @@ static esp_err_t createUser(httpd_req_t *req)
 /* Handler function to remove a user */
 static esp_err_t removeUser(httpd_req_t *req) 
 {
-    const char* tableName = "Users";
-
     char query[256];
-    char username[20];
-    const char* responseSuccess = "<!DOCTYPE html> <html> <body> <h1>User removed successfully</h1></body> </html>";
-    const char* responseFail = "<!DOCTYPE html> <html> <body> <h1>User removal failed</h1></body> </html>";
-    const char* response = responseSuccess;
+    const char* responseSuccess = "User removed successfully";
+    const char* responseFail = "User removal failed";
+    const char* response = responseFail;
 
     esp_err_t ret = ESP_FAIL;
 
@@ -352,29 +354,21 @@ static esp_err_t removeUser(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        // Parse the query parameters
-        ret = httpd_query_key_value(query, "username", username, sizeof(username));
-        if (ret != ESP_OK) 
+        auto queryParams = getQueryParameters(query);
+        if (!queryParams.empty())
         {
-            ESP_LOGE(TAG, "Error parsing username: %s", esp_err_to_name(ret));
-            response = responseFail;
-        }
-
-        if (ret == ESP_OK) 
-        {
-            // Remove user from the database
-            LocalDB& db = LocalDB::getInstance();
-            // ret = db.remove(tableName, std::make_pair("username", username));
-            if (ret != ESP_OK) {
-                ESP_LOGE(TAG, "Error removing user from database");
-                response = responseFail;
+            if (hasKey(queryParams, "username"))
+            {
+                if(ESP_OK == UserCredentialsManager::removeUser(queryParams["username"]))
+                {
+                    response = responseSuccess;
+                }
             }
         }
     }
     else
     {
         ESP_LOGE(TAG, "Error parsing query parameters: %s", esp_err_to_name(ret));
-        response = responseFail;
     }
 
     // Send response
@@ -386,14 +380,10 @@ static esp_err_t removeUser(httpd_req_t *req)
 /* Handler function to update a user's password */
 static esp_err_t updatePassword(httpd_req_t *req) 
 {
-    UserCredentialsManager userManager;
-
     char query[256];
-    char username[20];
-    char newPassword[20];
-    const char* responseSuccess = "<!DOCTYPE html> <html> <body> <h1>Password updated successfully</h1></body> </html>";
-    const char* responseFail = "<!DOCTYPE html> <html> <body> <h1>Password update failed</h1></body> </html>";
-    const char* response = responseSuccess;
+    const char* responseSuccess = "Password updated successfully";
+    const char* responseFail = "Password update failed";
+    const char* response = responseFail;
 
     esp_err_t ret = ESP_FAIL;
 
@@ -403,39 +393,21 @@ static esp_err_t updatePassword(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        // Parse the query parameters
-        ret = httpd_query_key_value(query, "username", username, sizeof(username));
-        if (ret != ESP_OK) 
+        auto queryParams = getQueryParameters(query);
+        if (!queryParams.empty())
         {
-            ESP_LOGE(TAG, "Error parsing username: %s", esp_err_to_name(ret));
-            response = responseFail;
-        }
-
-        ret = httpd_query_key_value(query, "new_password", newPassword, sizeof(newPassword));
-        if (ret != ESP_OK) 
-        {
-            ESP_LOGE(TAG, "Error parsing new password: %s", esp_err_to_name(ret));
-            response = responseFail;
-        }
-
-        if (ret == ESP_OK) 
-        {
-            // Update user's password in the database
-            LocalDB& db = LocalDB::getInstance();
-            std::map<std::string, std::string> updateValues = {
-                {"password", newPassword}
-            };
-            ret = userManager.updatePassword(username, newPassword);
-            if (ret != ESP_OK) {
-                ESP_LOGE(TAG, "Error updating user's password in database");
-                response = responseFail;
+            if (hasKey(queryParams, "username") && hasKey(queryParams, "old_password") && hasKey(queryParams, "new_password"))
+            {
+                if(ESP_OK == UserCredentialsManager::updatePassword(queryParams["username"], queryParams["old_password"], queryParams["new_password"]))
+                {
+                    response = responseSuccess;
+                }
             }
         }
     }
     else
     {
         ESP_LOGE(TAG, "Error parsing query parameters: %s", esp_err_to_name(ret));
-        response = responseFail;
     }
 
     // Send response
