@@ -280,7 +280,7 @@ void testDatabases()
     db.createTable("Engines", "id INTEGER PRIMARY KEY NOT NULL,"
                                 "name TEXT");
 
-    db.createTable("UserCredentials", "device_id INTEGER PRIMARY KEY,"
+    db.createTable("UserCredentials", "id INTEGER PRIMARY KEY,"
                                     "username TEXT NOT NULL,"
                                     "password TEXT NOT NULL");
 

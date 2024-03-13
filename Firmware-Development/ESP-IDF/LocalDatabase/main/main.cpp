@@ -1,11 +1,17 @@
 #include <stdio.h>
-#include <string.h>
+#include <string>
+#include <sstream>
+#include <iomanip>
 #include "esp_log.h"
 #include "esp_spiffs.h"
 #include "nvs_flash.h"
+#include "esp_wifi.h"
+
 #include "LocalDB.hpp"
 #include "Storage.hpp"
 #include "HttpServer.hpp"
+#include "UserManager.hpp"
+#include "Device.hpp"
 #include "wifi.h"
 
 static const char *TAG = "app_main";
@@ -27,10 +33,14 @@ extern "C" void app_main()
         return;
     }
     testDatabases();
+    auto credentials = Device::generateUsernamePassword();
+    ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
+    ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
+    UserCredentialsManager::createUser(credentials.first, credentials.second);
 
     wifi_init_sta();
     HttpServer::start();
-    // db.remove("UserCredentials", std::make_pair("device_id", "1"), std::make_pair("username", username.c_str()));
-    // db.remove("SensorData", std::make_pair("device_id", "1"));
+    // db.remove("UserCredentials", std::make_pair("id", "1"), std::make_pair("username", username.c_str()));
+    // db.remove("SensorData", std::make_pair("id", "1"));
     ESP_LOGI(TAG, "SPIFFS unmounted");
 }
