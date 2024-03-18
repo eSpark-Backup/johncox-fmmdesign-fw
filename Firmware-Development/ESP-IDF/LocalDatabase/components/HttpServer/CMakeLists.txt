@@ -10,6 +10,9 @@ idf_component_register(SRCS	"HttpServer.cpp"
                             json
                             UserManager
                             LocalDB
+                            Device
+                            CustomJWT
+                            JCErrors
 
                             EMBED_TXTFILES 
                             "favicon.ico"

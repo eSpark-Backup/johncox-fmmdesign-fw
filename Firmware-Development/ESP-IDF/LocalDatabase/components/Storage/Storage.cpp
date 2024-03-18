@@ -37,4 +37,5 @@ void Storage::init()
 void Storage::deinit()
 {
     esp_vfs_spiffs_unregister(nullptr);
+    ESP_LOGI(TAG, "SPIFFS unmounted");
 }

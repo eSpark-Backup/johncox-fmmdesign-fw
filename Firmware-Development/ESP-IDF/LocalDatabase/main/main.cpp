@@ -13,6 +13,8 @@
 #include "UserManager.hpp"
 #include "Device.hpp"
 #include "wifi.h"
+#include "CustomJWT.h"
+#include "JCErrors.h"
 
 static const char *TAG = "app_main";
 
@@ -33,14 +35,15 @@ extern "C" void app_main()
         return;
     }
     testDatabases();
-    auto credentials = Device::generateUsernamePassword();
+
+    wifi_init_sta();
+    auto credentials = Device::getCredentials();
     ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
     ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
     UserCredentialsManager::createUser(credentials.first, credentials.second);
 
-    wifi_init_sta();
     HttpServer::start();
     // db.remove("UserCredentials", std::make_pair("id", "1"), std::make_pair("username", username.c_str()));
     // db.remove("SensorData", std::make_pair("id", "1"));
-    ESP_LOGI(TAG, "SPIFFS unmounted");
+    
 }

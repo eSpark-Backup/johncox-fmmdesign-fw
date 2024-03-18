@@ -84,6 +84,8 @@
         "esp_tls.h": "c",
         "esp_https_server.h": "c",
         "esp_http_server.h": "c",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "jcerrors.h": "c",
+        "*.inc": "cpp"
     }
 }

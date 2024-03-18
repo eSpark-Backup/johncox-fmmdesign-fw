@@ -12,6 +12,8 @@
 #include "HttpServer.hpp"
 #include "LocalDB.hpp"
 #include "UserManager.hpp"
+#include "JCErrors.h"
+#include "Device.hpp"
 
 static const char *TAG = "HTTPS_SERVER";
 
@@ -23,7 +25,6 @@ static esp_err_t removeUser(httpd_req_t *req);
 static esp_err_t updatePassword(httpd_req_t *req);
 static esp_err_t userLogin(httpd_req_t *req);
 static esp_err_t setConfigurations(httpd_req_t *req);
-static esp_err_t parseConfigParams(const char* query, std::map<std::string, std::string>& updateValues);
 static esp_err_t getData(httpd_req_t *req);
 static esp_err_t helloworld(httpd_req_t *req);
 static esp_err_t faviconGetHandler(httpd_req_t *req);
@@ -42,7 +43,7 @@ httpd_uri_t uri_handlers[] =
     // { .uri = "/createUser",         .method = HTTP_GET,     .handler = createUser,          .user_ctx  = NULL},
     // { .uri = "/removeUser",         .method = HTTP_GET,     .handler = removeUser,          .user_ctx  = NULL},
     // { .uri = "/updatePassword",     .method = HTTP_GET,     .handler = updatePassword,      .user_ctx  = NULL},
-    { .uri = "/userLogin",          .method = HTTP_GET,     .handler = userLogin,      .user_ctx  = NULL},
+    { .uri = "/userLogin",          .method = HTTP_POST,     .handler = userLogin,      .user_ctx  = NULL},
     { .uri = "/favicon.ico",        .method = HTTP_GET,     .handler = faviconGetHandler,   .user_ctx  = NULL}
 };
 
@@ -212,94 +213,95 @@ static esp_err_t getData(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t parseConfigParams(const char* query, std::map<std::string, std::string>& updateValues) 
-{
-    char status[10];
-    char timeInterval[10];
-
-    esp_err_t ret = httpd_query_key_value(query, "status", status, sizeof(status));
-    if (ret == ESP_OK) 
-    {
-        updateValues["status"] = status;
-    } 
-    else 
-    {
-        ESP_LOGE(TAG, "Error parsing status: %s", esp_err_to_name(ret));
-    }
-
-    ret = httpd_query_key_value(query, "time_interval", timeInterval, sizeof(timeInterval));
-    if (ret == ESP_OK) 
-    {
-        updateValues["time_interval"] = timeInterval;
-    } 
-    else 
-    {
-        ESP_LOGE(TAG, "Error parsing time_interval: %s", esp_err_to_name(ret));
-    }
-
-    return ESP_OK;
-}
-
 static esp_err_t setConfigurations(httpd_req_t *req) {
     const char* tableName = (const char*) req->user_ctx;
 
     char query[256];
-    char engineId[10];
-    const char* responseSuccess = "Configurations updated successfully";
-    const char* responseFail = "Configurations update failed";
-    const char* response = responseSuccess;
     std::map<std::string, std::string> updateValues;
     LocalDB& db = LocalDB::getInstance();
 
     esp_err_t ret = ESP_OK; // Initialize to ESP_OK
 
+    char header[128];
+    ret = httpd_req_get_hdr_value_str(req, "Authorization", header, sizeof(header));
+    if (ESP_OK != ret) {
+        ESP_LOGE(TAG, "%s", missingAuthorizationHeaderResponse);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, missingAuthorizationHeaderResponse);
+        return ESP_FAIL;
+    }
+
+    // Check if the header starts with "Bearer "
+    const char* bearerPrefix = "Bearer ";
+    if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) {
+        ESP_LOGE(TAG, "%s", invalidHeaderFormatResponse);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidHeaderFormatResponse);
+        return ESP_FAIL;
+    }
+
+    // Extract the token part
+    char* token = header + strlen(bearerPrefix);
+
+    // Verify the token
+    if (ESP_OK != Device::verifyToken(token)) 
+    {
+        ESP_LOGE(TAG, "%s", invalidTokenResponse);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidTokenResponse);
+        return ESP_FAIL;
+    }
+
     // Get the query parameters from the request
     ret = httpd_req_get_url_query_str(req, query, sizeof(query));
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Error parsing query parameters: %s", esp_err_to_name(ret));
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Error parsing query parameters");
+        ESP_LOGE(TAG, "%s", queryParseErrorResponse);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, queryParseErrorResponse);
         return ESP_FAIL;
     }
 
     ESP_LOGI(TAG, "Query: %s", query);
 
-    // Parse the query parameters
-    ret = httpd_query_key_value(query, "engine_id", engineId, sizeof(engineId));
-    if (ret != ESP_OK && ret != ESP_ERR_NOT_FOUND) {
-        ESP_LOGE(TAG, "Error parsing engine_id: %s", esp_err_to_name(ret));
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Error parsing engine_id parameter");
+    // Get query parameters
+    std::map<std::string, std::string> queryParams = getQueryParameters(query);
+
+    if (!hasKey(queryParams, "status") && !hasKey(queryParams, "time_interval")) 
+    {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingConfigurationsResponse);
         return ESP_FAIL;
     }
-    else if (ret == ESP_ERR_NOT_FOUND) {
-        parseConfigParams(query, updateValues);
-        if (updateValues.empty()) {
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No configuration parameters provided");
-            return ESP_FAIL;
-        }
+
+    if (hasKey(queryParams, "status")) 
+    {
+        updateValues["status"] = queryParams["status"];
+    }
+    if(hasKey(queryParams, "time_interval")) 
+    {
+        updateValues["time_interval"] = queryParams["time_interval"];
+    }
+
+    // Parse the query parameters
+    if (!hasKey(queryParams, "engine_id")) 
+    {
         db.update(tableName, updateValues);
-        httpd_resp_send(req, response, strlen(response));
+        httpd_resp_send(req, configurationsUpdatedResponse, strlen(configurationsUpdatedResponse));
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "engine_id: %s", engineId);
+    ESP_LOGI(TAG, "engine_id: %s", queryParams["engine_id"].c_str());
 
     // Check if engine_id exists in the database
-    auto searchResults = db.search(tableName, {"engine_id"}, std::make_pair("engine_id", (const char*)engineId));
-    if (!searchResults.empty()) {
-        parseConfigParams(query, updateValues);
-        if (updateValues.empty()) {
-            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "No configuration parameters provided");
-            return ESP_FAIL;
-        }
-        db.update(tableName, updateValues, std::make_pair("engine_id", (const char*)engineId));
-    } else {
+    auto searchResults = db.search(tableName, {"engine_id"}, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
+    if (!searchResults.empty()) 
+    {
+        db.update(tableName, updateValues, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
+    } 
+    else 
+    {
         ESP_LOGE(TAG, "engine_id not found in the database");
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "engine_id not found in the database");
         return ESP_FAIL;
     }
 
     // Send success response
-    httpd_resp_send(req, response, strlen(response));
+    httpd_resp_send(req, configurationsUpdatedResponse, strlen(configurationsUpdatedResponse));
     return ESP_OK;
 }
 
@@ -310,45 +312,91 @@ static esp_err_t faviconGetHandler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t userLogin(httpd_req_t *req) 
-{
-    char query[256];
-    const char* responseSuccess = "User login successful";
-    const char* responseMissingParams = "missing username or password";
-    const char* response = responseSuccess;
+// Function to parse JSON body and extract key-value pairs
+static std::map<std::string, std::string> parseCredentials(const char* body) {
+    std::map<std::string, std::string> params;
 
-    esp_err_t ret = ESP_OK; // Initialize to ESP_OK
+    // Parse JSON
+    cJSON *root = cJSON_Parse(body);
+    if (root == NULL) {
+        ESP_LOGE(TAG, "Failed to parse JSON: %s", cJSON_GetErrorPtr());
+        return params;
+    }
 
-    // Get the query parameters from the request
-    if (httpd_req_get_url_query_str(req, query, sizeof(query)) != ESP_OK) 
-    {
-        ESP_LOGE(TAG, "Error parsing query parameters");
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, responseMissingParams);
+    // Get username
+    cJSON *usernameJson = cJSON_GetObjectItemCaseSensitive(root, "username");
+    if (cJSON_IsString(usernameJson) && (usernameJson->valuestring != NULL)) {
+        params["username"] = usernameJson->valuestring;
+    }
+
+    // Get password
+    cJSON *passwordJson = cJSON_GetObjectItemCaseSensitive(root, "password");
+    if (cJSON_IsString(passwordJson) && (passwordJson->valuestring != NULL)) {
+        params["password"] = passwordJson->valuestring;
+    }
+
+    cJSON_Delete(root);
+    return params;
+}
+
+static esp_err_t userLogin(httpd_req_t *req) {
+    char* buffer = nullptr;
+
+    esp_err_t ret = ESP_OK;
+
+    // Check content length
+    int content_length = req->content_len;
+    if (content_length <= 0) {
+        ESP_LOGE(TAG, "%s", emptyRequestBodyResponse);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, emptyRequestBodyResponse);
         return ESP_FAIL;
     }
 
-    ESP_LOGI(TAG, "Query: %s", query);
-
-    auto queryParams = getQueryParameters(query);
-    if (queryParams.empty() || !hasKey(queryParams, "username") || !hasKey(queryParams, "password")) 
-    {
-        // If query parameters are missing or both username and password are not present
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, responseMissingParams);
+    // Allocate memory for request body
+    buffer = (char*)malloc(content_length + 1);
+    if (!buffer) {
+        ESP_LOGE(TAG, "%s", memoryAllocationFailedResponse);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, memoryAllocationFailedResponse);
         return ESP_FAIL;
     }
 
-    ret = UserCredentialsManager::authenticateUser(queryParams["username"], queryParams["password"]);
+    // Read request body
+    ret = httpd_req_recv(req, buffer, content_length);
+    if (ret <= 0) {
+        ESP_LOGE(TAG, "%s", receivingRequestBodyResponse);
+        free(buffer);
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, receivingRequestBodyResponse);
+        return ESP_FAIL;
+    }
 
-    // Check the result of the authentication
-    if (ret != ESP_OK) 
-    {
-        // Send an HTTP error response with appropriate status code
-        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Authentication failed");
+    // Null-terminate the received data
+    buffer[ret] = '\0';
+
+    // Parse the request body to get query parameters
+    auto credentials = parseCredentials(buffer);
+
+    // Check if username and password are present
+    if (credentials.empty() || !hasKey(credentials, "username") || !hasKey(credentials, "password")) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingCredentialsResponse);
+        free(buffer);
+        return ESP_FAIL;
+    }
+
+    // Authenticate user
+    ret = UserCredentialsManager::authenticateUser(credentials["username"], credentials["password"]);
+    if (ret != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, authenticationFailedResponse);
+        free(buffer);
         return ESP_FAIL;
     }
 
     // Send response
-    httpd_resp_send(req, response, strlen(response));
+    std::string token = Device::getBearerToken();
+    std::string response = JSON_MESSAGE_WITH_TOKEN(true, "Login successful", token);
+    httpd_resp_send(req, response.c_str(), response.length());
+
+    // Free allocated memory
+    free(buffer);
 
     return ESP_OK;
 }
