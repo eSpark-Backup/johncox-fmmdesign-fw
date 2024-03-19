@@ -17,9 +17,7 @@ class Device
         
     public:
         static std::pair<std::string, std::string> getCredentials();
-        static std::string getBearerToken();
-        static esp_err_t verifyToken(char* token);
-    
+
 };
 
 #endif // DEVICE_HPP

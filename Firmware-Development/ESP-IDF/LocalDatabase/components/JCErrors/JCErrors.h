@@ -22,6 +22,7 @@ JC_ERROR(missingConfigurationsResponse, JSON_MESSAGE(false, "missing configurati
 JC_ERROR(missingAuthorizationHeaderResponse, JSON_MESSAGE(false, "Authorization header missing"));
 JC_ERROR(invalidHeaderFormatResponse, JSON_MESSAGE(false, "Invalid authorization header format"));
 JC_ERROR(invalidTokenResponse, JSON_MESSAGE(false, "Invalid token"));
+JC_ERROR(expiredTokenResponse, JSON_MESSAGE(false, "Expired token"));
 
 JC_ERROR(configurationsUpdatedResponse, JSON_MESSAGE(true, "Configurations updated successfully"));
 // JC_ERROR(loginSuccessResponse, JSON_MESSAGE(true, "User login successful"));

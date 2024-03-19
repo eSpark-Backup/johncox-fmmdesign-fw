@@ -13,6 +13,7 @@ idf_component_register(SRCS	"HttpServer.cpp"
                             Device
                             CustomJWT
                             JCErrors
+                            SessionManager
 
                             EMBED_TXTFILES 
                             "favicon.ico"

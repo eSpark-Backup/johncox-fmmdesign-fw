@@ -14,6 +14,7 @@
 #include "UserManager.hpp"
 #include "JCErrors.h"
 #include "Device.hpp"
+#include "SessionManager.hpp"
 
 static const char *TAG = "HTTPS_SERVER";
 
@@ -242,11 +243,21 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
     char* token = header + strlen(bearerPrefix);
 
     // Verify the token
-    if (ESP_OK != Device::verifyToken(token)) 
+    TokenStatus tokenStatus = SessionManager::verifyToken(token);
+    if (TOKEN_VALID != tokenStatus) 
     {
-        ESP_LOGE(TAG, "%s", invalidTokenResponse);
-        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidTokenResponse);
-        return ESP_FAIL;
+        if(TOKEN_INVALID == tokenStatus)
+        {
+            ESP_LOGE(TAG, "%s", invalidTokenResponse);
+            httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidTokenResponse);
+            return ESP_FAIL;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "%s", expiredTokenResponse);
+            httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, expiredTokenResponse);
+            return ESP_FAIL;
+        }
     }
 
     // Get the query parameters from the request
@@ -391,7 +402,7 @@ static esp_err_t userLogin(httpd_req_t *req) {
     }
 
     // Send response
-    std::string token = Device::getBearerToken();
+    std::string token = SessionManager::getBearerToken();
     std::string response = JSON_MESSAGE_WITH_TOKEN(true, "Login successful", token);
     httpd_resp_send(req, response.c_str(), response.length());
 

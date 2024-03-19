@@ -1,8 +1,6 @@
 #include "Device.hpp"
 #include <esp_wifi.h>
 #include <esp_log.h>
-#include "CustomJWT.h"
-#include "cJSON.h"
 
 static const char* TAG = "Device";
 
@@ -42,103 +40,4 @@ std::pair<std::string, std::string> Device::getCredentials()
     }
 
     return generateCredentials();
-}
-
-void printData(char *data, size_t dataLen) {
-    ESP_LOGI(TAG, "Data: %s Data Length: %d", data, dataLen);
-}
-
-std::string Device::getBearerToken() {
-    // Retrieve credentials
-    std::pair<std::string, std::string> credentials = getCredentials();
-    
-    // Construct payload
-    std::string payload = "{\"username\":\"" + credentials.first + "\"}";
-
-    // Set JWT key
-    std::string key = credentials.first + "_ash_" + credentials.second;
-
-    // Create CustomJWT object
-    CustomJWT jwt(const_cast<char*>(key.c_str()), 256);
-
-    // Allocate memory for JWT
-    jwt.allocateJWTMemory();
-
-    // Encode JWT
-    ESP_LOGI(TAG, "Generating a JWT");
-    bool ret = jwt.encodeJWT(const_cast<char*>(payload.c_str()));
-
-    if (ret)
-    {
-        // Log JWT parts
-        ESP_LOGI(TAG, "Header Info");
-        printData(jwt.header, jwt.headerLength);
-        ESP_LOGI(TAG, "Payload Info");
-        printData(jwt.payload, jwt.payloadLength);
-        ESP_LOGI(TAG, "Signature Info");
-        printData(jwt.signature, jwt.signatureLength);
-        ESP_LOGI(TAG, "Final Output Info");
-        printData(jwt.out, jwt.outputLength);
-    }
-
-    std::string token(jwt.out);
-    // Clear JWT
-    jwt.clear();
-    return token;
-}
-
-// Function to parse JSON payload using cJSON
-std::string parseUsername(const char* payload) {
-    cJSON* json = cJSON_Parse(payload);
-    if (!json) {
-        ESP_LOGE(TAG, "Failed to parse JSON payload");
-        return "";
-    }
-
-    cJSON* usernameJson = cJSON_GetObjectItemCaseSensitive(json, "username");
-    if (!usernameJson || !cJSON_IsString(usernameJson)) {
-        ESP_LOGE(TAG, "Username not found in JSON payload");
-        cJSON_Delete(json);
-        return "";
-    }
-
-    std::string username = usernameJson->valuestring;
-
-    cJSON_Delete(json);
-    return username;
-}
-
-esp_err_t Device::verifyToken(char* token) {
-    // Retrieve credentials
-    std::pair<std::string, std::string> credentials = getCredentials();
-    
-    // Construct payload
-    std::string payload = "{\"username\":\"" + credentials.first + "\"}";
-
-    // Set JWT key
-    std::string key = credentials.first + "_ash_" + credentials.second;
-    
-    // Create CustomJWT object
-    CustomJWT jwt(const_cast<char*>(key.c_str()), 256);
-
-    jwt.allocateJWTMemory();
-
-    int ret = jwt.decodeJWT(token);
-    if (!ret)
-    {
-        ESP_LOGI(TAG, "Header Info");
-        printData(jwt.header, jwt.headerLength);
-        ESP_LOGI(TAG, "Payload Info");
-        printData(jwt.payload, jwt.payloadLength);
-        ESP_LOGI(TAG, "Signature Info");
-        printData(jwt.signature, jwt.signatureLength);
-        if(parseUsername(jwt.payload) == credentials.first)
-        {
-            jwt.clear();
-            return ESP_OK;
-        }
-    }
-    
-    jwt.clear();
-    return ESP_FAIL;
 }

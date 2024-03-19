@@ -27,7 +27,7 @@ extern "C" void app_main()
       ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
-
+    
     Storage::init();
     LocalDB& db = LocalDB::getInstance();
     db.init();
