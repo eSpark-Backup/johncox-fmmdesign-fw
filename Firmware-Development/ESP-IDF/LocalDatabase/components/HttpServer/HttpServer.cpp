@@ -51,7 +51,14 @@ httpd_uri_t uri_handlers[] =
 /* Start the HTTP server */
 void HttpServer::start(void)
 {
-    // httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    # if 0
+    httpd_handle_t server = NULL;
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 15;
+    config.max_open_sockets = 6;
+
+    esp_err_t ret = httpd_start(&server, &config);
+    #else
     httpd_handle_t server = NULL;
 
     httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
@@ -71,6 +78,7 @@ void HttpServer::start(void)
     config.prvtkey_len = prvtkey_pem_end - prvtkey_pem_start;
 
     esp_err_t ret = httpd_ssl_start(&server, &config);
+    #endif
 
     if (ret == ESP_OK) 
     {
@@ -146,9 +154,8 @@ bool hasKey(const std::map<std::string, std::string>& parameters, const std::str
 /* An HTTP GET handler */
 esp_err_t helloworld(httpd_req_t *req)
 {
-    ESP_LOGI(TAG, "HTTP GET request for /hello");
-    const char *response = "<!DOCTYPE html> <html> <body> <h1>Electronics</h1> <p>Embedded Systems</p> </body> </html>";
-    httpd_resp_send(req, response, strlen(response));
+    ESP_LOGI(TAG, "HTTP GET request for /helloWorld");
+    httpd_resp_send(req, helloWorldResponse, strlen(helloWorldResponse));
     return ESP_OK;
 }
 

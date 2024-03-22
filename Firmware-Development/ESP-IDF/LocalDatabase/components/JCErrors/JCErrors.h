@@ -25,4 +25,5 @@ JC_ERROR(invalidTokenResponse, JSON_MESSAGE(false, "Invalid token"));
 JC_ERROR(expiredTokenResponse, JSON_MESSAGE(false, "Expired token"));
 
 JC_ERROR(configurationsUpdatedResponse, JSON_MESSAGE(true, "Configurations updated successfully"));
+JC_ERROR(helloWorldResponse, JSON_MESSAGE(true, "Hello World !!!!!"));
 // JC_ERROR(loginSuccessResponse, JSON_MESSAGE(true, "User login successful"));

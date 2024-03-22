@@ -12,11 +12,29 @@
 #include "HttpServer.hpp"
 #include "UserManager.hpp"
 #include "Device.hpp"
-#include "wifi.h"
+// #include "wifi.h"
 #include "CustomJWT.h"
 #include "JCErrors.h"
+#include "mdns.h"
+#include "WifiSoftApp.hpp"
 
 static const char *TAG = "app_main";
+
+void mdns_task(void *pvParameter) {
+    esp_err_t err = mdns_init();
+    if (err) {
+        ESP_LOGE(TAG, "Failed to initialize mDNS: %d", err);
+        vTaskDelete(NULL);
+        return;
+    }
+
+    mdns_hostname_set("timesp1");
+    mdns_instance_name_set("ESP32 mDNS Service");
+
+    ESP_LOGI(TAG, "mDNS Service Started");
+
+    vTaskDelete(NULL);
+}
 
 extern "C" void app_main() 
 {
@@ -28,19 +46,24 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
     
-    Storage::init();
-    LocalDB& db = LocalDB::getInstance();
-    db.init();
-    if (!db.open()) {
-        return;
-    }
-    testDatabases();
+    // Storage::init();
+    // LocalDB& db = LocalDB::getInstance();
+    // db.init();
+    // if (!db.open()) {
+    //     return;
+    // }
+    // testDatabases();
 
-    wifi_init_sta();
+    // wifi_init_sta();
+    WifiProvisioning wifi;
+    wifi.softap();
+    xTaskCreate(&mdns_task, "mdns_task", 2048, NULL, 5, NULL);
+
+    vTaskDelay(3000/portTICK_RATE_MS);
     auto credentials = Device::getCredentials();
-    ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
-    ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
-    UserCredentialsManager::createUser(credentials.first, credentials.second);
+    // ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
+    // ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
+    // UserCredentialsManager::createUser(credentials.first, credentials.second);
 
     HttpServer::start();
     // db.remove("UserCredentials", std::make_pair("id", "1"), std::make_pair("username", username.c_str()));

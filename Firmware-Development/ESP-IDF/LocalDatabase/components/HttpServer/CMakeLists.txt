@@ -17,6 +17,6 @@ idf_component_register(SRCS	"HttpServer.cpp"
 
                             EMBED_TXTFILES 
                             "favicon.ico"
-                            "certs/cacert.pem"
-                            "certs/prvtkey.pem"
+                            "currentCerts/cacert.pem"
+                            "currentCerts/prvtkey.pem"
 						)
