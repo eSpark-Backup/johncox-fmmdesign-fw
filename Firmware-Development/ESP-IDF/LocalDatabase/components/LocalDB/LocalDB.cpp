@@ -6,6 +6,8 @@
 
 static const char *TAG = "LocalDB";
 
+static int searchCallback(void* data, int argc, char** argv, char** azColName);
+
 LocalDB* LocalDB::instance = nullptr;
 
 LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {}
@@ -103,28 +105,31 @@ int LocalDB::insert(const char *tableName, std::map<std::string, std::string> da
     return executeSQL(sql, nullptr);
 }
 
-void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair) 
+std::string LocalDB::constructWhereCondition(const std::map<std::string, std::string>& where) 
 {
-    condition << pair.first << "='" << pair.second << "'";
+    std::ostringstream condition;
+    if (!where.empty()) 
+    {
+        condition << " WHERE ";
+        size_t entryCount = 0;
+        for (const auto& entry : where) 
+        {
+            if (entryCount != 0) 
+            {
+                condition << " AND ";
+            }
+            condition << entry.first << "='" << entry.second << "'";
+            ++entryCount;
+        }
+    }
+    return condition.str();
 }
 
-template<typename... Args>
-void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) 
-{
-    condition << " AND " << pair.first << "='" << pair.second << "'";
-    constructCondition(condition, std::forward<Args>(args)...);
-}
-
-template<typename... Args>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select, Args&&... where) 
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select, const std::map<std::string, std::string>& where, bool latest) 
 {
     std::vector<std::map<std::string, std::string>> results;
 
-    std::ostringstream condition;
-    if constexpr (sizeof...(where) > 0) 
-    {
-        constructCondition(condition, std::forward<Args>(where)...);
-    }
+    std::string condition = constructWhereCondition(where);
 
     std::ostringstream selectStr;
     for (size_t i = 0; i < select.size(); ++i) 
@@ -137,81 +142,33 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
     }
 
     std::string sql = "SELECT " + selectStr.str() + " FROM " + std::string(tableName);
-    if (!condition.str().empty()) 
+    if (!condition.empty()) 
     {
-        sql += " WHERE " + condition.str();
+        sql += condition;
     }
+    if (latest)
+    {
+        sql += " ORDER BY id DESC LIMIT 1"; // Assuming 'id' is the primary key
+    }
+    
 
-    executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
-        std::map<std::string, std::string> row;
-        for (int i = 0; i < argc; i++) {
-            row[azColName[i]] = argv[i] ? argv[i] : "NULL";
-        }
-        static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
-        return 0;
-    }, &results);
+    executeSQL(sql.c_str(), searchCallback, &results);
 
     return results;
 }
 
-// Template specialization for search function without where conditions
-template<>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select) 
-{
-    std::vector<std::map<std::string, std::string>> results;
-
-    std::ostringstream selectStr;
-    for (size_t i = 0; i < select.size(); ++i) 
-    {
-        if (i != 0) 
-        {
-            selectStr << ", ";
-        }
-        selectStr << select[i];
-    }
-
-    std::string sql = "SELECT " + selectStr.str() + " FROM " + std::string(tableName);
-
-    executeSQL(sql.c_str(), [](void* data, int argc, char** argv, char** azColName) {
-        std::map<std::string, std::string> row;
-        for (int i = 0; i < argc; i++) {
-            row[azColName[i]] = argv[i] ? argv[i] : "NULL";
-        }
-        static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
-        return 0;
-    }, &results);
-
-    return results;
-}
-
-template<typename... Args>
-int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, Args&&... where) 
+int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, const std::map<std::string, std::string>& where) 
 {
     std::stringstream updateValues;
     constructUpdateValues(updateValues, update);
 
-    std::ostringstream condition;
-    if constexpr (sizeof...(where) > 0) 
-    {
-        constructCondition(condition, std::forward<Args>(where)...);
-    }
+    std::string condition = constructWhereCondition(where);
 
     std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
-    if (!condition.str().empty()) 
+    if (!condition.empty()) 
     {
-        sql += " WHERE " + condition.str();
+        sql += condition;
     }
-
-    return executeSQL(sql.c_str(), nullptr);
-}
-
-template<>
-int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update) 
-{
-    std::stringstream updateValues;
-    constructUpdateValues(updateValues, update);
-
-    std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
 
     return executeSQL(sql.c_str(), nullptr);
 }
@@ -232,46 +189,24 @@ void LocalDB::constructUpdateValues(std::stringstream& updateValues, const std::
     updateValues.str(valuesStr);
 }
 
-template<typename... Args>
-int LocalDB::remove(const char* tableName, Args&&... args) 
+int LocalDB::remove(const char* tableName, const std::map<std::string, std::string>& where) 
 {
-    std::stringstream condition;
-    if constexpr (sizeof...(args) > 0) 
+    std::string sql;
+    if (where.empty())
     {
-        constructDeleteCondition(condition, std::forward<Args>(args)...);
+        sql = "DROP TABLE IF EXISTS " + std::string(tableName);
+        return executeSQL(sql.c_str(), nullptr);
     }
 
-    std::string sql = "DELETE FROM " + std::string(tableName);
-    if (!condition.str().empty()) 
-    {
-        sql += " WHERE " + condition.str();
-    }
+    std::string condition = constructWhereCondition(where);
 
+    sql = "DELETE FROM " + std::string(tableName);
+    if (!condition.empty()) 
+    {
+        sql += condition;
+    }
+    
     return executeSQL(sql.c_str(), nullptr);
-}
-
-template<>
-int LocalDB::remove(const char* tableName) 
-{
-    std::string sql = "DROP TABLE IF EXISTS " + std::string(tableName);
-    return executeSQL(sql.c_str());
-}
-
-template<typename... Args>
-void LocalDB::constructDeleteCondition(std::stringstream& condition, Args&&... args) 
-{
-    if constexpr (sizeof...(args) > 0) 
-    {
-        condition << "1=1 AND ";
-        ((condition << args.first << "='" << args.second << "' AND "), ...);
-    }
-    // Remove the trailing "AND"
-    std::string conditionStr = condition.str();
-    if (!conditionStr.empty()) 
-    {
-        conditionStr = conditionStr.substr(0, conditionStr.size() - 5);
-    }
-    condition.str(conditionStr);
 }
 
 void LocalDB::printLastError() 
@@ -293,7 +228,7 @@ void testDatabases()
     LocalDB& db = LocalDB::getInstance(filename);
     db.init();
 
-    unlink("/spiffs/test.db");
+    // unlink("/spiffs/test.db");
 
     if (!db.open()) 
     {
@@ -363,13 +298,11 @@ void testDatabases()
 
     // db.remove("SensorData");
 
-    // Search for data in SensorData table where engine_id is '1003'
-    auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1003"));
+    // std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"fuel_return", "20.75"}};
+    // std::map<std::string, std::string> filter = {{"engine_id", "1003"}};
+    // db.update("SensorData", updateValues, filter);
 
-    std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"sensor_data_id", "4567"}};
-    db.update("SensorData", updateValues, std::make_pair("engine_id", "1004"));
-
-    // auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
+    auto searchResults = db.search("SensorData", {"*"}, {});
 
     // // Display the search results
     for (const auto& result : searchResults) 
@@ -380,20 +313,37 @@ void testDatabases()
         printf("\n");
     }
 
-    // db.remove("SensorData", std::make_pair("engine_id", "1005"));
-    // auto results = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
+    std::map<std::string, std::string> filter = {
+        {"engine_id", "1005"},
+        {"temperature_return", "30.2"},
+    };
+    db.remove("SensorData", filter);
 
-    // // // Display the search results
-    // for (const auto& result : results) {
-    //     for (const auto& pair : result) {
-    //         printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
-    //     }
-    //     printf("\n");
-    // }
+
+    auto results = db.search("SensorData", {"*"}, {});
+
+    // // Display the search results
+    for (const auto& result : results) {
+        for (const auto& pair : result) {
+            printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
+        }
+        printf("\n");
+    }
 
     // db.printLastError();
 
     // db.close();
+}
+
+static int searchCallback(void* data, int argc, char** argv, char** azColName) 
+{
+    std::map<std::string, std::string> row;
+    for (int i = 0; i < argc; i++) 
+    {
+        row[azColName[i]] = argv[i] ? argv[i] : "NULL";
+    }
+    static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
+    return 0;
 }
 
 int printCallback(void *data, int argc, char **argv, char **azColName) 

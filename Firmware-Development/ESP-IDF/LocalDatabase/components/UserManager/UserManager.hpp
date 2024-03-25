@@ -6,13 +6,24 @@
 
 class UserCredentialsManager {
 public:
-    static esp_err_t createUser(const std::string& username, const std::string& password);
-    static esp_err_t removeUser(const std::string& username);
-    static esp_err_t updatePassword(const std::string& username, const std::string& oldPassword, const std::string& newPassword);
-    static esp_err_t authenticateUser(const std::string& username, const std::string& password);
+    static UserCredentialsManager& getInstance(); // Static method to access the singleton instance
+
+    esp_err_t createUser(const std::string& username, const std::string& password);
+    esp_err_t removeUser(const std::string& username);
+    esp_err_t updatePassword(const std::string& username, const std::string& oldPassword, const std::string& newPassword);
+    esp_err_t authenticateUser(const std::string& username, const std::string& password);
 
 private:
-    static int getUserID(const std::string& username);
+    UserCredentialsManager(); // Private constructor to prevent instantiation
+    UserCredentialsManager(const UserCredentialsManager&) = delete; // Delete copy constructor
+    UserCredentialsManager& operator=(const UserCredentialsManager&) = delete; // Delete assignment operator
+    ~UserCredentialsManager(); // Private destructor
+
+    int getUserID(const std::string& username);
+
+    // Singleton instance
+    static UserCredentialsManager instance;
 };
 
 #endif // USER_CREDENTIALS_MANAGER_HPP
+

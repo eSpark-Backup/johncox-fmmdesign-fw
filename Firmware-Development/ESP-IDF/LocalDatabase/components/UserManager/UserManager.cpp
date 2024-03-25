@@ -2,6 +2,20 @@
 #include "LocalDB.hpp" // Assuming you have a LocalDB class for interacting with the database
 #include <iostream>
 
+UserCredentialsManager UserCredentialsManager::instance; // Define the static member
+
+UserCredentialsManager::UserCredentialsManager() {
+    // Constructor implementation
+}
+
+UserCredentialsManager::~UserCredentialsManager() {
+    // Destructor implementation
+}
+
+UserCredentialsManager& UserCredentialsManager::getInstance() {
+    return instance;
+}
+
 esp_err_t UserCredentialsManager::createUser(const std::string& username, const std::string& password) 
 {
     // Check if a user with the given username already exists
@@ -39,8 +53,13 @@ esp_err_t UserCredentialsManager::removeUser(const std::string& username)
         std::cout << "User '" << username << "' not found." << std::endl;
         return ESP_FAIL;
     }
-    // db.remove("UserCredentials", std::make_pair("id", "1"), std::make_pair("username", username.c_str()));
-    // db.remove("SensorData", std::make_pair("id", "1"));
+
+    std::map<std::string, std::string> filter = 
+    {
+        {"id", "1"},
+        {"username", username.c_str()},
+    };
+    db.remove("UserCredentials", filter);
     std::cout << "User '" << username << "' removed successfully." << std::endl;
     return ESP_OK;
 }
@@ -65,7 +84,8 @@ esp_err_t UserCredentialsManager::updatePassword(const std::string& username, co
     {
         {"password", newPassword}
     };
-    db.update("UserCredentials", updateValues, std::make_pair("id", "1"));
+    std::map<std::string, std::string> filter = {{"id", "1"}};
+    db.update("UserCredentials", updateValues, filter);
     std::cout << "Password updated successfully for user '" << username << "'." << std::endl;
     return ESP_OK;
 }
@@ -75,8 +95,11 @@ int UserCredentialsManager::getUserID(const std::string& username)
 {
     // Get the user ID for the given username
     LocalDB& db = LocalDB::getInstance();
-    auto searchResults = db.search("UserCredentials", {"id"},  
-                               std::make_pair("username", username.c_str()));
+    
+    std::map<std::string, std::string> filter;
+    filter["username"] = username;
+
+    auto searchResults = db.search("UserCredentials", {"id"}, filter);
     if (searchResults.empty()) 
     {
         return -1; // User not found
@@ -88,7 +111,10 @@ esp_err_t UserCredentialsManager::authenticateUser(const std::string& username, 
 {
     // Check if the provided username and password match the stored credentials
     LocalDB& db = LocalDB::getInstance();
-    auto searchResults = db.search("UserCredentials", {"password"}, std::make_pair("username", username.c_str()));
+    std::map<std::string, std::string> filter;
+    filter["username"] = username;
+
+    auto searchResults = db.search("UserCredentials", {"password"}, filter);
 
     if (!searchResults.empty()) 
     {

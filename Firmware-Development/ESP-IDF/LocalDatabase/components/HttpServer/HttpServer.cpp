@@ -97,12 +97,18 @@ void HttpServer::start(void)
     }
 }
 
-// Function to convert search results to JSON
 char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::string>>& searchResults) 
 {
-    cJSON* root = cJSON_CreateArray(); // Create a JSON array
+    cJSON* root = cJSON_CreateObject(); // Create a JSON object
     if (!root) 
     {
+        return nullptr;
+    }
+
+    cJSON* dataArray = cJSON_CreateArray(); // Create a JSON array for data
+    if (!dataArray) 
+    {
+        cJSON_Delete(root);
         return nullptr;
     }
 
@@ -112,6 +118,7 @@ char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::st
         if (!item) 
         {
             cJSON_Delete(root);
+            cJSON_Delete(dataArray);
             return nullptr;
         }
 
@@ -120,10 +127,12 @@ char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::st
             cJSON_AddStringToObject(item, pair.first.c_str(), pair.second.c_str());
         }
 
-        cJSON_AddItemToArray(root, item); // Add object to the array
+        cJSON_AddItemToArray(dataArray, item); // Add object to the array
     }
 
-    char* jsonStr = cJSON_Print(root); // Convert JSON array to string
+    cJSON_AddItemToObject(root, "data", dataArray); // Attach array to the "data" key
+
+    char* jsonStr = cJSON_Print(root); // Convert JSON object to string
     cJSON_Delete(root); // Clean up cJSON objects
 
     return jsonStr;
@@ -182,7 +191,12 @@ static esp_err_t getData(httpd_req_t *req)
     if (ret == ESP_ERR_NOT_FOUND)
     {
         LocalDB& db = LocalDB::getInstance();
-        auto searchResults = db.search(tableName, {"*"});
+        bool latest = true;
+        if (std::string("Configurations") == tableName)
+        {
+            latest = false;
+        }
+        auto searchResults = db.search(tableName, {"*"}, {}, latest);
         if (searchResults.empty()) 
         {
             // No matching data found
@@ -217,9 +231,19 @@ static esp_err_t getData(httpd_req_t *req)
     ESP_LOGI(TAG, "engine_id: %s", engineId);
 
     LocalDB& db = LocalDB::getInstance();
-    auto searchResults = db.search(tableName, {"*"}, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
 
-    if (searchResults.empty()) 
+    std::map<std::string, std::string> filter;
+    filter["engine_id"] = queryParams["engine_id"].c_str();
+
+    bool latest = true;
+    if (std::string("Configurations") == tableName)
+    {
+        latest = false;
+    }
+    
+    auto searchResults = db.search(tableName, {"*"}, filter, latest);
+
+    if (searchResults.empty())
     {
         // No matching data found
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "data not found");
@@ -322,11 +346,14 @@ static esp_err_t setConfigurations(httpd_req_t *req)
 
     ESP_LOGI(TAG, "engine_id: %s", queryParams["engine_id"].c_str());
 
+    std::map<std::string, std::string> filter;
+    filter["engine_id"] = queryParams["engine_id"].c_str();
     // Check if engine_id exists in the database
-    auto searchResults = db.search(tableName, {"engine_id"}, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
+    auto searchResults = db.search(tableName, {"engine_id"}, filter);
     if (!searchResults.empty()) 
     {
-        db.update(tableName, updateValues, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
+        std::map<std::string, std::string> filter = {{"engine_id", queryParams["engine_id"].c_str()}};
+        db.update(tableName, updateValues, filter);
     } 
     else 
     {
@@ -427,7 +454,8 @@ static esp_err_t userLogin(httpd_req_t *req)
     }
 
     // Authenticate user
-    ret = UserCredentialsManager::authenticateUser(credentials["username"], credentials["password"]);
+    UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
+    ret = userMan.authenticateUser(credentials["username"], credentials["password"]);
     if (ret != ESP_OK) 
     {
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, authenticationFailedResponse);
@@ -467,7 +495,8 @@ static esp_err_t createUser(httpd_req_t *req)
         {
             if (hasKey(queryParams, "username") && hasKey(queryParams, "password"))
             {
-                if (ESP_OK == UserCredentialsManager::createUser(queryParams["username"], queryParams["password"]))
+                UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
+                if (ESP_OK == userMan.createUser(queryParams["username"], queryParams["password"]))
                 {
                     response = responseSuccess;
                 }
@@ -505,7 +534,8 @@ static esp_err_t removeUser(httpd_req_t *req)
         {
             if (hasKey(queryParams, "username"))
             {
-                if(ESP_OK == UserCredentialsManager::removeUser(queryParams["username"]))
+                UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
+                if(ESP_OK == userMan.removeUser(queryParams["username"]))
                 {
                     response = responseSuccess;
                 }
@@ -543,7 +573,8 @@ static esp_err_t updatePassword(httpd_req_t *req)
         {
             if (hasKey(queryParams, "username") && hasKey(queryParams, "old_password") && hasKey(queryParams, "new_password"))
             {
-                if(ESP_OK == UserCredentialsManager::updatePassword(queryParams["username"], queryParams["old_password"], queryParams["new_password"]))
+                UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
+                if(ESP_OK == userMan.updatePassword(queryParams["username"], queryParams["old_password"], queryParams["new_password"]))
                 {
                     response = responseSuccess;
                 }

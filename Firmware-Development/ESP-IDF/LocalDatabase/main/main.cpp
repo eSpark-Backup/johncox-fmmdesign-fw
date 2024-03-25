@@ -30,27 +30,26 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
     
-    // Storage::init();
-    // LocalDB& db = LocalDB::getInstance();
-    // db.init();
-    // if (!db.open()) {
-    //     return;
-    // }
-    // testDatabases();
+    Storage::init();
+    LocalDB& db = LocalDB::getInstance();
+    db.init();
+    if (!db.open()) {
+        return;
+    }
+    testDatabases();
 
-    // wifi_init_sta();
     DeviceProvisioning devProv;
     devProv.start();
     MDNSService::start("timesp1");
 
     vTaskDelay(3000/portTICK_RATE_MS);
     auto credentials = Device::getCredentials();
-    // ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
-    // ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
-    // UserCredentialsManager::createUser(credentials.first, credentials.second);
+    ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
+    ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());
+
+    UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
+    userMan.createUser(credentials.first, credentials.second);
 
     HttpServer::start();
-    // db.remove("UserCredentials", std::make_pair("id", "1"), std::make_pair("username", username.c_str()));
-    // db.remove("SensorData", std::make_pair("id", "1"));
     
 }
