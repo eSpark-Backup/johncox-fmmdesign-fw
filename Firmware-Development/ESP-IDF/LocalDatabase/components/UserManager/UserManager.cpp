@@ -5,14 +5,16 @@
 esp_err_t UserCredentialsManager::createUser(const std::string& username, const std::string& password) 
 {
     // Check if a user with the given username already exists
-    if (getUserID(username) != -1) {
+    if (getUserID(username) != -1) 
+    {
         std::cout << "User '" << username << "' already exists." << std::endl;
         return ESP_FAIL;
     }
 
     // Insert the new user into the UserCredentials table
     LocalDB& db = LocalDB::getInstance();
-    std::map<std::string, std::string> userData = {
+    std::map<std::string, std::string> userData = 
+    {
         {"id", "1"}, // Assuming only one device
         {"username", username},
         {"password", password}
@@ -32,7 +34,8 @@ esp_err_t UserCredentialsManager::removeUser(const std::string& username)
     // Delete the user from the UserCredentials table
     LocalDB& db = LocalDB::getInstance();
     int userID = getUserID(username);
-    if (userID == -1) {
+    if (userID == -1) 
+    {
         std::cout << "User '" << username << "' not found." << std::endl;
         return ESP_FAIL;
     }
@@ -44,7 +47,8 @@ esp_err_t UserCredentialsManager::removeUser(const std::string& username)
 
 esp_err_t UserCredentialsManager::updatePassword(const std::string& username, const std::string& oldPassword, const std::string& newPassword) {
     // Authenticate the user
-    if (ESP_OK != authenticateUser(username, oldPassword)) {
+    if (ESP_OK != authenticateUser(username, oldPassword)) 
+    {
         std::cout << "Authentication failed for user '" << username << "'." << std::endl;
         return ESP_FAIL;
     }
@@ -52,11 +56,13 @@ esp_err_t UserCredentialsManager::updatePassword(const std::string& username, co
     // Update the password for the given user
     LocalDB& db = LocalDB::getInstance();
     int userID = getUserID(username);
-    if (userID == -1) {
+    if (userID == -1) 
+    {
         std::cout << "User '" << username << "' not found." << std::endl;
         return ESP_FAIL;
     }
-    std::map<std::string, std::string> updateValues = {
+    std::map<std::string, std::string> updateValues = 
+    {
         {"password", newPassword}
     };
     db.update("UserCredentials", updateValues, std::make_pair("id", "1"));
@@ -71,7 +77,8 @@ int UserCredentialsManager::getUserID(const std::string& username)
     LocalDB& db = LocalDB::getInstance();
     auto searchResults = db.search("UserCredentials", {"id"},  
                                std::make_pair("username", username.c_str()));
-    if (searchResults.empty()) {
+    if (searchResults.empty()) 
+    {
         return -1; // User not found
     }
     return std::stoi(searchResults[0]["id"]);

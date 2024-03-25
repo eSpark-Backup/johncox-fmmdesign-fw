@@ -152,7 +152,8 @@ void DeviceProvisioning::start(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     /* Configuration for the provisioning manager */
-    wifi_prov_mgr_config_t config = {
+    wifi_prov_mgr_config_t config = 
+    {
 #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
         .scheme = wifi_prov_scheme_softap,
         .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE

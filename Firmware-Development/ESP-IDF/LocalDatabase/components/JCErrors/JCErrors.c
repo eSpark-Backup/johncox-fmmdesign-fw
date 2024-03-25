@@ -1,3 +1,3 @@
-#define JC_ERRORS_DEFINE
+#define JC_RESPONSES_DEFINE
 
 #include "JCErrors.h"

@@ -7,7 +7,8 @@ static const char* TAG = "Device";
 std::string Device::username;
 std::string Device::password;
 
-std::pair<std::string, std::string> Device::generateCredentials() {
+std::pair<std::string, std::string> Device::generateCredentials() 
+{
     // Get MAC address of ESP32
     uint8_t mac[6];
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, mac);

@@ -10,61 +10,77 @@ LocalDB* LocalDB::instance = nullptr;
 
 LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {}
 
-LocalDB::~LocalDB() {
+LocalDB::~LocalDB() 
+{
     close();
 }
 
-LocalDB& LocalDB::getInstance(const char *filename) {
-    if (!instance) {
+LocalDB& LocalDB::getInstance(const char *filename) 
+{
+    if (!instance) 
+    {
         instance = new LocalDB(filename);
     }
     return *instance;
 }
 
-void LocalDB::init() {
+void LocalDB::init() 
+{
     sqlite3_initialize();
 }
 
-bool LocalDB::open() {
+bool LocalDB::open() 
+{
     int rc = sqlite3_open(filename, &db);
-    if (rc) {
+    if (rc) 
+    {
         ESP_LOGE(TAG, "Can't open database: %s", sqlite3_errmsg(db));
         return false;
-    } else {
+    } 
+    else 
+    {
         ESP_LOGI(TAG, "Opened database successfully");
         return true;
     }
 }
 
-void LocalDB::close() {
-    if (db) {
+void LocalDB::close() 
+{
+    if (db) 
+    {
         sqlite3_close(db);
         db = nullptr;
     }
 }
 
-void LocalDB::createTable(const char *tableName, const char *columns) {
+void LocalDB::createTable(const char *tableName, const char *columns) 
+{
     char sql[512];
     snprintf(sql, sizeof(sql), "CREATE TABLE %s(%s);", tableName, columns);
     executeSQL(sql);
 }
 
-int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, char**), void *callbackData) {
+int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, char**), void *callbackData) 
+{
     char *zErrMsg = nullptr;
     ESP_LOGI(TAG, "%s", sql);
     int64_t start = esp_timer_get_time();
     int rc = sqlite3_exec(db, sql, callback, callbackData, &zErrMsg);
-    if (rc != SQLITE_OK) {
+    if (rc != SQLITE_OK) 
+    {
         ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
         sqlite3_free(zErrMsg);
-    } else {
+    } 
+    else 
+    {
         ESP_LOGI(TAG, "Operation done successfully");
     }
     ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
     return rc;
 }
 
-int LocalDB::insert(const char *tableName, std::map<std::string, std::string> data) {
+int LocalDB::insert(const char *tableName, std::map<std::string, std::string> data) 
+{
     std::string columns;
     std::string values;
 
@@ -87,35 +103,42 @@ int LocalDB::insert(const char *tableName, std::map<std::string, std::string> da
     return executeSQL(sql, nullptr);
 }
 
-void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair) {
+void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair) 
+{
     condition << pair.first << "='" << pair.second << "'";
 }
 
 template<typename... Args>
-void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) {
+void LocalDB::constructCondition(std::ostringstream& condition, const std::pair<const char*, std::string>& pair, Args&&... args) 
+{
     condition << " AND " << pair.first << "='" << pair.second << "'";
     constructCondition(condition, std::forward<Args>(args)...);
 }
 
 template<typename... Args>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select, Args&&... where) {
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select, Args&&... where) 
+{
     std::vector<std::map<std::string, std::string>> results;
 
     std::ostringstream condition;
-    if constexpr (sizeof...(where) > 0) {
+    if constexpr (sizeof...(where) > 0) 
+    {
         constructCondition(condition, std::forward<Args>(where)...);
     }
 
     std::ostringstream selectStr;
-    for (size_t i = 0; i < select.size(); ++i) {
-        if (i != 0) {
+    for (size_t i = 0; i < select.size(); ++i) 
+    {
+        if (i != 0) 
+        {
             selectStr << ", ";
         }
         selectStr << select[i];
     }
 
     std::string sql = "SELECT " + selectStr.str() + " FROM " + std::string(tableName);
-    if (!condition.str().empty()) {
+    if (!condition.str().empty()) 
+    {
         sql += " WHERE " + condition.str();
     }
 
@@ -133,12 +156,15 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
 
 // Template specialization for search function without where conditions
 template<>
-std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select) {
+std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tableName, std::vector<const char*> select) 
+{
     std::vector<std::map<std::string, std::string>> results;
 
     std::ostringstream selectStr;
-    for (size_t i = 0; i < select.size(); ++i) {
-        if (i != 0) {
+    for (size_t i = 0; i < select.size(); ++i) 
+    {
+        if (i != 0) 
+        {
             selectStr << ", ";
         }
         selectStr << select[i];
@@ -159,17 +185,20 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
 }
 
 template<typename... Args>
-int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, Args&&... where) {
+int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update, Args&&... where) 
+{
     std::stringstream updateValues;
     constructUpdateValues(updateValues, update);
 
     std::ostringstream condition;
-    if constexpr (sizeof...(where) > 0) {
+    if constexpr (sizeof...(where) > 0) 
+    {
         constructCondition(condition, std::forward<Args>(where)...);
     }
 
     std::string sql = "UPDATE " + std::string(tableName) + " SET " + updateValues.str();
-    if (!condition.str().empty()) {
+    if (!condition.str().empty()) 
+    {
         sql += " WHERE " + condition.str();
     }
 
@@ -177,7 +206,8 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
 }
 
 template<>
-int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update) {
+int LocalDB::update(const char* tableName, const std::map<std::string, std::string>& update) 
+{
     std::stringstream updateValues;
     constructUpdateValues(updateValues, update);
 
@@ -187,27 +217,33 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
 }
 
 template<typename... Args>
-void LocalDB::constructUpdateValues(std::stringstream& updateValues, const std::map<std::string, std::string>& values) {
-    for (const auto& pair : values) {
+void LocalDB::constructUpdateValues(std::stringstream& updateValues, const std::map<std::string, std::string>& values) 
+{
+    for (const auto& pair : values) 
+    {
         updateValues << pair.first << "='" << pair.second << "',";
     }
     // Remove the trailing comma
     std::string valuesStr = updateValues.str();
-    if (!valuesStr.empty()) {
+    if (!valuesStr.empty()) 
+    {
         valuesStr.pop_back();
     }
     updateValues.str(valuesStr);
 }
 
 template<typename... Args>
-int LocalDB::remove(const char* tableName, Args&&... args) {
+int LocalDB::remove(const char* tableName, Args&&... args) 
+{
     std::stringstream condition;
-    if constexpr (sizeof...(args) > 0) {
+    if constexpr (sizeof...(args) > 0) 
+    {
         constructDeleteCondition(condition, std::forward<Args>(args)...);
     }
 
     std::string sql = "DELETE FROM " + std::string(tableName);
-    if (!condition.str().empty()) {
+    if (!condition.str().empty()) 
+    {
         sql += " WHERE " + condition.str();
     }
 
@@ -215,30 +251,38 @@ int LocalDB::remove(const char* tableName, Args&&... args) {
 }
 
 template<>
-int LocalDB::remove(const char* tableName) {
+int LocalDB::remove(const char* tableName) 
+{
     std::string sql = "DROP TABLE IF EXISTS " + std::string(tableName);
     return executeSQL(sql.c_str());
 }
 
 template<typename... Args>
-void LocalDB::constructDeleteCondition(std::stringstream& condition, Args&&... args) {
-    if constexpr (sizeof...(args) > 0) {
+void LocalDB::constructDeleteCondition(std::stringstream& condition, Args&&... args) 
+{
+    if constexpr (sizeof...(args) > 0) 
+    {
         condition << "1=1 AND ";
         ((condition << args.first << "='" << args.second << "' AND "), ...);
     }
     // Remove the trailing "AND"
     std::string conditionStr = condition.str();
-    if (!conditionStr.empty()) {
+    if (!conditionStr.empty()) 
+    {
         conditionStr = conditionStr.substr(0, conditionStr.size() - 5);
     }
     condition.str(conditionStr);
 }
 
-void LocalDB::printLastError() {
-    if (db) {
+void LocalDB::printLastError() 
+{
+    if (db) 
+    {
         const char* errorMsg = sqlite3_errmsg(db);
         ESP_LOGE(TAG, "Last error: %s", errorMsg ? errorMsg : "Unknown error");
-    } else {
+    } 
+    else 
+    {
         ESP_LOGE(TAG, "No database connection.");
     }
 }
@@ -251,7 +295,8 @@ void testDatabases()
 
     unlink("/spiffs/test.db");
 
-    if (!db.open()) {
+    if (!db.open()) 
+    {
         return;
     }
 
@@ -327,7 +372,8 @@ void testDatabases()
     // auto searchResults = db.search("SensorData", {"*"}, std::make_pair("engine_id", "1005"));
 
     // // Display the search results
-    for (const auto& result : searchResults) {
+    for (const auto& result : searchResults) 
+    {
         for (const auto& pair : result) {
             printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
         }
@@ -350,10 +396,12 @@ void testDatabases()
     // db.close();
 }
 
-int printCallback(void *data, int argc, char **argv, char **azColName) {
+int printCallback(void *data, int argc, char **argv, char **azColName) 
+{
     int i;
     printf("%s: \n", (const char*)data);
-    for (i = 0; i < argc; i++) {
+    for (i = 0; i < argc; i++) 
+    {
         printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
     }
     printf("\n");

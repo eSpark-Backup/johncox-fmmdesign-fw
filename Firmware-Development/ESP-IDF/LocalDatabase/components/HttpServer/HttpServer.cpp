@@ -98,20 +98,25 @@ void HttpServer::start(void)
 }
 
 // Function to convert search results to JSON
-char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::string>>& searchResults) {
+char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::string>>& searchResults) 
+{
     cJSON* root = cJSON_CreateArray(); // Create a JSON array
-    if (!root) {
+    if (!root) 
+    {
         return nullptr;
     }
 
-    for (const auto& result : searchResults) {
+    for (const auto& result : searchResults) 
+    {
         cJSON* item = cJSON_CreateObject(); // Create a JSON object for each row
-        if (!item) {
+        if (!item) 
+        {
             cJSON_Delete(root);
             return nullptr;
         }
 
-        for (const auto& pair : result) {
+        for (const auto& pair : result) 
+        {
             cJSON_AddStringToObject(item, pair.first.c_str(), pair.second.c_str());
         }
 
@@ -124,16 +129,19 @@ char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::st
     return jsonStr;
 }
 
-static std::map<std::string, std::string> getQueryParameters(const char* queryString) {
+static std::map<std::string, std::string> getQueryParameters(const char* queryString) 
+{
     std::map<std::string, std::string> parameters;
 
     char* token;
     char* queryCopy = strdup(queryString);  // Create a copy of queryString to avoid modifying the original
 
     token = strtok(queryCopy, "&");
-    while (token != nullptr) {
+    while (token != nullptr) 
+    {
         char* separator = strchr(token, '=');
-        if (separator != nullptr) {
+        if (separator != nullptr) 
+        {
             *separator = '\0';  // Split the token into parameter and value
             std::string key(token);
             std::string value(separator + 1);
@@ -147,7 +155,8 @@ static std::map<std::string, std::string> getQueryParameters(const char* querySt
 }
 
 // Check if a specific key exists in the map
-bool hasKey(const std::map<std::string, std::string>& parameters, const std::string& key) {
+bool hasKey(const std::map<std::string, std::string>& parameters, const std::string& key) 
+{
     return parameters.find(key) != parameters.end();
 }
 
@@ -174,7 +183,8 @@ static esp_err_t getData(httpd_req_t *req)
     {
         LocalDB& db = LocalDB::getInstance();
         auto searchResults = db.search(tableName, {"*"});
-        if (searchResults.empty()) {
+        if (searchResults.empty()) 
+        {
             // No matching data found
             httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "data not found");
             return ESP_FAIL;
@@ -197,7 +207,8 @@ static esp_err_t getData(httpd_req_t *req)
     // Parse the query parameters using getQueryParameters function
     auto queryParams = getQueryParameters(query);
 
-    if (!hasKey(queryParams, "engine_id")) {
+    if (!hasKey(queryParams, "engine_id")) 
+    {
         ESP_LOGE(TAG, "missing or invalid engine_id parameter");
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "missing or invalid engine_id parameter");
         return ESP_FAIL;
@@ -208,7 +219,8 @@ static esp_err_t getData(httpd_req_t *req)
     LocalDB& db = LocalDB::getInstance();
     auto searchResults = db.search(tableName, {"*"}, std::make_pair("engine_id", queryParams["engine_id"].c_str()));
 
-    if (searchResults.empty()) {
+    if (searchResults.empty()) 
+    {
         // No matching data found
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "data not found");
         return ESP_FAIL;
@@ -221,7 +233,8 @@ static esp_err_t getData(httpd_req_t *req)
     return ESP_OK;
 }
 
-static esp_err_t setConfigurations(httpd_req_t *req) {
+static esp_err_t setConfigurations(httpd_req_t *req) 
+{
     const char* tableName = (const char*) req->user_ctx;
 
     char query[256];
@@ -232,7 +245,8 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
 
     char header[128];
     ret = httpd_req_get_hdr_value_str(req, "Authorization", header, sizeof(header));
-    if (ESP_OK != ret) {
+    if (ESP_OK != ret) 
+    {
         ESP_LOGE(TAG, "%s", missingAuthorizationHeaderResponse);
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, missingAuthorizationHeaderResponse);
         return ESP_FAIL;
@@ -240,7 +254,8 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
 
     // Check if the header starts with "Bearer "
     const char* bearerPrefix = "Bearer ";
-    if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) {
+    if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) 
+    {
         ESP_LOGE(TAG, "%s", invalidHeaderFormatResponse);
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidHeaderFormatResponse);
         return ESP_FAIL;
@@ -269,7 +284,8 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
 
     // Get the query parameters from the request
     ret = httpd_req_get_url_query_str(req, query, sizeof(query));
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         ESP_LOGE(TAG, "%s", queryParseErrorResponse);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, queryParseErrorResponse);
         return ESP_FAIL;
@@ -290,6 +306,7 @@ static esp_err_t setConfigurations(httpd_req_t *req) {
     {
         updateValues["status"] = queryParams["status"];
     }
+
     if(hasKey(queryParams, "time_interval")) 
     {
         updateValues["time_interval"] = queryParams["time_interval"];
@@ -331,25 +348,29 @@ static esp_err_t faviconGetHandler(httpd_req_t *req)
 }
 
 // Function to parse JSON body and extract key-value pairs
-static std::map<std::string, std::string> parseCredentials(const char* body) {
+static std::map<std::string, std::string> parseCredentials(const char* body) 
+{
     std::map<std::string, std::string> params;
 
     // Parse JSON
     cJSON *root = cJSON_Parse(body);
-    if (root == NULL) {
+    if (root == NULL) 
+    {
         ESP_LOGE(TAG, "Failed to parse JSON: %s", cJSON_GetErrorPtr());
         return params;
     }
 
     // Get username
     cJSON *usernameJson = cJSON_GetObjectItemCaseSensitive(root, "username");
-    if (cJSON_IsString(usernameJson) && (usernameJson->valuestring != NULL)) {
+    if (cJSON_IsString(usernameJson) && (usernameJson->valuestring != NULL)) 
+    {
         params["username"] = usernameJson->valuestring;
     }
 
     // Get password
     cJSON *passwordJson = cJSON_GetObjectItemCaseSensitive(root, "password");
-    if (cJSON_IsString(passwordJson) && (passwordJson->valuestring != NULL)) {
+    if (cJSON_IsString(passwordJson) && (passwordJson->valuestring != NULL)) 
+    {
         params["password"] = passwordJson->valuestring;
     }
 
@@ -357,14 +378,16 @@ static std::map<std::string, std::string> parseCredentials(const char* body) {
     return params;
 }
 
-static esp_err_t userLogin(httpd_req_t *req) {
+static esp_err_t userLogin(httpd_req_t *req)
+{
     char* buffer = nullptr;
 
     esp_err_t ret = ESP_OK;
 
     // Check content length
     int content_length = req->content_len;
-    if (content_length <= 0) {
+    if (content_length <= 0) 
+    {
         ESP_LOGE(TAG, "%s", emptyRequestBodyResponse);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, emptyRequestBodyResponse);
         return ESP_FAIL;
@@ -372,7 +395,8 @@ static esp_err_t userLogin(httpd_req_t *req) {
 
     // Allocate memory for request body
     buffer = (char*)malloc(content_length + 1);
-    if (!buffer) {
+    if (!buffer) 
+    {
         ESP_LOGE(TAG, "%s", memoryAllocationFailedResponse);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, memoryAllocationFailedResponse);
         return ESP_FAIL;
@@ -380,7 +404,8 @@ static esp_err_t userLogin(httpd_req_t *req) {
 
     // Read request body
     ret = httpd_req_recv(req, buffer, content_length);
-    if (ret <= 0) {
+    if (ret <= 0) 
+    {
         ESP_LOGE(TAG, "%s", receivingRequestBodyResponse);
         free(buffer);
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, receivingRequestBodyResponse);
@@ -394,7 +419,8 @@ static esp_err_t userLogin(httpd_req_t *req) {
     auto credentials = parseCredentials(buffer);
 
     // Check if username and password are present
-    if (credentials.empty() || !hasKey(credentials, "username") || !hasKey(credentials, "password")) {
+    if (credentials.empty() || !hasKey(credentials, "username") || !hasKey(credentials, "password")) 
+    {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingCredentialsResponse);
         free(buffer);
         return ESP_FAIL;
@@ -402,7 +428,8 @@ static esp_err_t userLogin(httpd_req_t *req) {
 
     // Authenticate user
     ret = UserCredentialsManager::authenticateUser(credentials["username"], credentials["password"]);
-    if (ret != ESP_OK) {
+    if (ret != ESP_OK) 
+    {
         httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, authenticationFailedResponse);
         free(buffer);
         return ESP_FAIL;

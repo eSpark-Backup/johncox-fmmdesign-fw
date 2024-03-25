@@ -13,22 +13,26 @@ std::string SessionManager::token;
 std::string SessionManager::key;
 long SessionManager::previousTokenGenerationTime = 0;
 
-void printData(char *data, size_t dataLen) {
+void printData(char *data, size_t dataLen) 
+{
     ESP_LOGI(TAG, "Data: %s Data Length: %d", data, dataLen);
 }
 
 // Function to get the current time in seconds since epoch
-long SessionManager::getCurrentTimeInSeconds() {
+long SessionManager::getCurrentTimeInSeconds() 
+{
     return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-long SessionManager::getTimeElapsedSinceTokenGeneration() {
+long SessionManager::getTimeElapsedSinceTokenGeneration() 
+{
     long currentTime = getCurrentTimeInSeconds();
     return (currentTime - previousTokenGenerationTime);
 }
 
 // Function to generate a random key
-std::string SessionManager::generateRandomKey(int length) {
+std::string SessionManager::generateRandomKey(int length) 
+{
     // Characters to choose from for the key
     const std::string characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -45,7 +49,8 @@ std::string SessionManager::generateRandomKey(int length) {
     key.reserve(length);
     
     // Generate the key
-    for (int i = 0; i < length; ++i) {
+    for (int i = 0; i < length; ++i) 
+    {
         key += characters[dis(gen)];
     }
 
@@ -100,15 +105,18 @@ std::string SessionManager::getBearerToken()
 }
 
 // Function to parse JSON payload using cJSON
-std::string SessionManager::parseUsername(const char* payload) {
+std::string SessionManager::parseUsername(const char* payload) 
+{
     cJSON* json = cJSON_Parse(payload);
-    if (!json) {
+    if (!json) 
+    {
         ESP_LOGE(TAG, "Failed to parse JSON payload");
         return "";
     }
 
     cJSON* usernameJson = cJSON_GetObjectItemCaseSensitive(json, "username");
-    if (!usernameJson || !cJSON_IsString(usernameJson)) {
+    if (!usernameJson || !cJSON_IsString(usernameJson)) 
+    {
         ESP_LOGE(TAG, "Username not found in JSON payload");
         cJSON_Delete(json);
         return "";
