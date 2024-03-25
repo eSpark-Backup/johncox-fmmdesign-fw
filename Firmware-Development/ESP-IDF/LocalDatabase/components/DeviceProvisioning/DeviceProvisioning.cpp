@@ -1,10 +1,10 @@
-#include "WifiSoftApp.hpp"
+#include "DeviceProvisioning.hpp"
 
 const int WIFI_CONNECTED_EVENT = BIT0;
 static const char *TAG = "app";
 static EventGroupHandle_t wifi_event_group;
 /* Event handler for catching system events */
-void WifiProvisioning::event_handler(void *arg, esp_event_base_t event_base,
+void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
 #ifdef CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE
@@ -78,14 +78,14 @@ void WifiProvisioning::event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void WifiProvisioning::wifi_init_sta(void)
+void DeviceProvisioning::wifiInitSTA(void)
 {
     /* Start Wi-Fi in station mode */
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-void WifiProvisioning::get_device_service_name(char *service_name, size_t max)
+void DeviceProvisioning::getDeviceServiceName(char *service_name, size_t max)
 {
     uint8_t eth_mac[6];
     const char *ssid_prefix = "TIMESP_";
@@ -98,7 +98,7 @@ void WifiProvisioning::get_device_service_name(char *service_name, size_t max)
  * The data format can be chosen by applications. Here, we are using plain ascii text.
  * Applications can choose to use other formats like protobuf, JSON, XML, etc.
  */
-esp_err_t WifiProvisioning::custom_prov_data_handler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
+esp_err_t DeviceProvisioning::domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                    uint8_t **outbuf, ssize_t *outlen, void *priv_data)
 {
     if (inbuf)
@@ -117,7 +117,7 @@ esp_err_t WifiProvisioning::custom_prov_data_handler(uint32_t session_id, const 
     return ESP_OK;
 }
 
-void WifiProvisioning::softap(void)
+void DeviceProvisioning::start(void)
 {
     /* Initialize NVS partition */
     esp_err_t ret = nvs_flash_init();
@@ -139,9 +139,9 @@ void WifiProvisioning::softap(void)
     wifi_event_group = xEventGroupCreate();
 
     /* Register our event handler for Wi-Fi, IP, and Provisioning related events */
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &eventHandler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &eventHandler, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &eventHandler, NULL));
 
     /* Initialize Wi-Fi including netif with default config */
     esp_netif_create_default_wifi_sta();
@@ -178,7 +178,7 @@ void WifiProvisioning::softap(void)
         ESP_LOGI(TAG, "Starting provisioning");
 
         char service_name[20];
-        get_device_service_name(service_name, sizeof(service_name));
+        getDeviceServiceName(service_name, sizeof(service_name));
 
         wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
         const char *pop = "abcd1234";
@@ -186,7 +186,7 @@ void WifiProvisioning::softap(void)
 
         /* Start provisioning service */
         ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
-        wifi_prov_mgr_endpoint_register("domain-name", WifiProvisioning::custom_prov_data_handler, NULL);
+        wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
     }
     else
     {
@@ -197,7 +197,7 @@ void WifiProvisioning::softap(void)
         wifi_prov_mgr_deinit();
 
         /* Start Wi-Fi station */
-        wifi_init_sta();
+        wifiInitSTA();
     }
 
     /* Wait for Wi-Fi connection */

@@ -15,26 +15,10 @@
 // #include "wifi.h"
 #include "CustomJWT.h"
 #include "JCErrors.h"
-#include "mdns.h"
-#include "WifiSoftApp.hpp"
+#include "DeviceProvisioning.hpp"
+#include "MDNSService.hpp"
 
 static const char *TAG = "app_main";
-
-void mdns_task(void *pvParameter) {
-    esp_err_t err = mdns_init();
-    if (err) {
-        ESP_LOGE(TAG, "Failed to initialize mDNS: %d", err);
-        vTaskDelete(NULL);
-        return;
-    }
-
-    mdns_hostname_set("timesp1");
-    mdns_instance_name_set("ESP32 mDNS Service");
-
-    ESP_LOGI(TAG, "mDNS Service Started");
-
-    vTaskDelete(NULL);
-}
 
 extern "C" void app_main() 
 {
@@ -55,9 +39,9 @@ extern "C" void app_main()
     // testDatabases();
 
     // wifi_init_sta();
-    WifiProvisioning wifi;
-    wifi.softap();
-    xTaskCreate(&mdns_task, "mdns_task", 2048, NULL, 5, NULL);
+    DeviceProvisioning devProv;
+    devProv.start();
+    MDNSService::start("timesp1");
 
     vTaskDelay(3000/portTICK_RATE_MS);
     auto credentials = Device::getCredentials();

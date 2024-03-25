@@ -22,17 +22,18 @@
 #define CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT 2
 // #define CONFIG_EXAMPLE_RESET_PROVISIONED 1
 
-class WifiProvisioning
+class DeviceProvisioning
 {
-public:
+    public:
+        void start(void);
+        static void eventHandler(void *arg, esp_event_base_t event_base,
+                                int32_t event_id, void *event_data);
 
-    void softap(void);
-    static void event_handler(void *arg, esp_event_base_t event_base,
-                              int32_t event_id, void *event_data);
-
-    static void wifi_init_sta(void);
-    static void get_device_service_name(char *service_name, size_t max);
-    static esp_err_t custom_prov_data_handler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
+        static void wifiInitSTA(void);
+        static void getDeviceServiceName(char *service_name, size_t max);
+        
+    private:
+        static esp_err_t domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                        uint8_t **outbuf, ssize_t *outlen, void *priv_data);
     
 };
