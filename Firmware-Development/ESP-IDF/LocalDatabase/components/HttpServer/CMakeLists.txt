@@ -1,4 +1,4 @@
-idf_component_register(SRCS	"HttpServer.cpp"
+idf_component_register(SRCS	"HttpServer.cpp" "HttpRequestsHandlers.cpp"
 						INCLUDE_DIRS "."
                         REQUIRES
                             nvs_flash
@@ -14,6 +14,7 @@ idf_component_register(SRCS	"HttpServer.cpp"
                             CustomJWT
                             JCErrors
                             SessionManager
+                            Websockets
 
                             EMBED_TXTFILES 
                             "favicon.ico"

@@ -12,11 +12,11 @@
 #include "HttpServer.hpp"
 #include "UserManager.hpp"
 #include "Device.hpp"
-// #include "wifi.h"
 #include "CustomJWT.h"
 #include "JCErrors.h"
 #include "DeviceProvisioning.hpp"
 #include "MDNSService.hpp"
+#include "Websockets.hpp"
 
 static const char *TAG = "app_main";
 
@@ -51,5 +51,5 @@ extern "C" void app_main()
     userMan.createUser(credentials.first, credentials.second);
 
     HttpServer::start();
-    
+    // start_wss_echo_server();
 }
