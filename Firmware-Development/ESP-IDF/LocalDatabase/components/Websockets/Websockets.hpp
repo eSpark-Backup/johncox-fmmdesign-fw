@@ -13,4 +13,4 @@ bool client_not_alive_cb(wss_keep_alive_t h, int fd);
 bool check_client_alive_cb(wss_keep_alive_t h, int fd);
 httpd_handle_t start_wss_echo_server(void);
 void stop_wss_echo_server(httpd_handle_t server);
-void wss_server_send_messages(httpd_handle_t* server);
+void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void) = NULL);

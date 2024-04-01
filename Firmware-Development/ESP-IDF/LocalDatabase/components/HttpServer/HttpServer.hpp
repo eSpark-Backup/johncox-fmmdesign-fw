@@ -6,7 +6,7 @@
 class HttpServer
 {
     public:
-        static void start(void);
+        static void start(char* (*dataCallback)(void));
 
 };
 

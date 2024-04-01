@@ -25,6 +25,7 @@
 struct async_resp_arg {
     httpd_handle_t hd;
     int fd;
+    char* (*dataCallback)(void);
 };
 
 static const char *TAG = "wss_echo_server";
@@ -122,10 +123,10 @@ static const httpd_uri_t ws = {
 };
 
 
-static void send_hello(void *arg)
+static void sendDataWebsocket(void *arg)
 {
-    static const char * data = "Hello client";
     struct async_resp_arg *resp_arg = (struct async_resp_arg*)arg;
+    const char * data = resp_arg->dataCallback();
     httpd_handle_t hd = resp_arg->hd;
     int fd = resp_arg->fd;
     httpd_ws_frame_t ws_pkt;
@@ -136,6 +137,7 @@ static void send_hello(void *arg)
 
     httpd_ws_send_frame_async(hd, fd, &ws_pkt);
     free(resp_arg);
+    free((void*)data);
 }
 
 static void send_ping(void *arg)
@@ -246,7 +248,7 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
 }
 
 // Get all clients and send async message
-void wss_server_send_messages(httpd_handle_t* server)
+void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void))
 {
     bool send_messages = true;
 
@@ -267,7 +269,8 @@ void wss_server_send_messages(httpd_handle_t* server)
                     struct async_resp_arg *resp_arg = (struct async_resp_arg*)malloc(sizeof(struct async_resp_arg));
                     resp_arg->hd = *server;
                     resp_arg->fd = sock;
-                    if (httpd_queue_work(resp_arg->hd, send_hello, resp_arg) != ESP_OK) {
+                    resp_arg->dataCallback = dataCallback;
+                    if (httpd_queue_work(resp_arg->hd, sendDataWebsocket, resp_arg) != ESP_OK) {
                         ESP_LOGE(TAG, "httpd_queue_work failed!");
                         send_messages = false;
                         break;

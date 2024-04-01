@@ -31,12 +31,7 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     Storage::init();
-    LocalDB& db = LocalDB::getInstance();
-    db.init();
-    if (!db.open()) {
-        return;
-    }
-    testDatabases();
+    Device::init();
 
     DeviceProvisioning devProv;
     devProv.start();
@@ -50,6 +45,5 @@ extern "C" void app_main()
     UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
     userMan.createUser(credentials.first, credentials.second);
 
-    HttpServer::start();
-    // start_wss_echo_server();
+    HttpServer::start(Device::getData);
 }

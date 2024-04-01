@@ -6,12 +6,9 @@ idf_component_register(SRCS	"HttpServer.cpp" "HttpRequestsHandlers.cpp"
                             esp_https_server
                             esp_netif
                             esp_wifi
-                            spiffs
-                            json
                             UserManager
                             LocalDB
                             Device
-                            CustomJWT
                             JCErrors
                             SessionManager
                             Websockets

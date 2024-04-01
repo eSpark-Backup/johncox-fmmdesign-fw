@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cstdint>
 #include <esp_err.h>
+#include "LocalDB.hpp"
 
 class Device 
 {
@@ -14,9 +15,13 @@ class Device
         static std::string username;
         static std::string password;
         static std::pair<std::string, std::string> generateCredentials();
+        static void insertRandomValues(LocalDB& db);
+        static void createTables(LocalDB& db);
         
     public:
+        static char* getData();
         static std::pair<std::string, std::string> getCredentials();
+        static void init();
 
 };
 

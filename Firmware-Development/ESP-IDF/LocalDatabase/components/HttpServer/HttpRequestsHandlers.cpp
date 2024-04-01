@@ -1,4 +1,3 @@
-#include "cJSON.h"
 #include "HttpRequestsHandlers.hpp"
 #include "LocalDB.hpp"
 #include "UserManager.hpp"
@@ -6,80 +5,9 @@
 #include "Device.hpp"
 #include "SessionManager.hpp"
 #include <esp_log.h>
+#include "Parser.hpp"
 
 static const char *TAG = "HttpRequestsHandlers";
-
-char* convertSearchResultsToJSON(const std::vector<std::map<std::string, std::string>>& searchResults) 
-{
-    cJSON* root = cJSON_CreateObject(); // Create a JSON object
-    if (!root) 
-    {
-        return nullptr;
-    }
-
-    cJSON* dataArray = cJSON_CreateArray(); // Create a JSON array for data
-    if (!dataArray) 
-    {
-        cJSON_Delete(root);
-        return nullptr;
-    }
-
-    for (const auto& result : searchResults) 
-    {
-        cJSON* item = cJSON_CreateObject(); // Create a JSON object for each row
-        if (!item) 
-        {
-            cJSON_Delete(root);
-            cJSON_Delete(dataArray);
-            return nullptr;
-        }
-
-        for (const auto& pair : result) 
-        {
-            cJSON_AddStringToObject(item, pair.first.c_str(), pair.second.c_str());
-        }
-
-        cJSON_AddItemToArray(dataArray, item); // Add object to the array
-    }
-
-    cJSON_AddItemToObject(root, "data", dataArray); // Attach array to the "data" key
-
-    char* jsonStr = cJSON_Print(root); // Convert JSON object to string
-    cJSON_Delete(root); // Clean up cJSON objects
-
-    return jsonStr;
-}
-
-std::map<std::string, std::string> getQueryParameters(const char* queryString) 
-{
-    std::map<std::string, std::string> parameters;
-
-    char* token;
-    char* queryCopy = strdup(queryString);  // Create a copy of queryString to avoid modifying the original
-
-    token = strtok(queryCopy, "&");
-    while (token != nullptr) 
-    {
-        char* separator = strchr(token, '=');
-        if (separator != nullptr) 
-        {
-            *separator = '\0';  // Split the token into parameter and value
-            std::string key(token);
-            std::string value(separator + 1);
-            parameters[key] = value;
-        }
-        token = strtok(nullptr, "&");
-    }
-
-    free(queryCopy);  // Free the allocated memory for the copy
-    return parameters;
-}
-
-// Check if a specific key exists in the map
-bool hasKey(const std::map<std::string, std::string>& parameters, const std::string& key) 
-{
-    return parameters.find(key) != parameters.end();
-}
 
 /* An HTTP GET handler */
 esp_err_t helloworld(httpd_req_t *req)
@@ -115,7 +43,9 @@ esp_err_t getData(httpd_req_t *req)
             httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "data not found");
             return ESP_FAIL;
         }
-        char* resp = convertSearchResultsToJSON(searchResults);
+        std::map<std::string, std::vector<std::map<std::string, std::string>>> jsonData;
+        jsonData[tableName] = searchResults;
+        char* resp = Parser::convertMapToJSON(jsonData);
         httpd_resp_send(req, resp, strlen(resp));
         free(resp);
 
@@ -131,9 +61,9 @@ esp_err_t getData(httpd_req_t *req)
     ESP_LOGI(TAG, "Query: %s", query);
 
     // Parse the query parameters using getQueryParameters function
-    auto queryParams = getQueryParameters(query);
+    auto queryParams = Parser::getQueryParameters(query);
 
-    if (!hasKey(queryParams, "engine_id")) 
+    if (!Parser::hasKey(queryParams, "engine_id")) 
     {
         ESP_LOGE(TAG, "missing or invalid engine_id parameter");
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "missing or invalid engine_id parameter");
@@ -162,7 +92,9 @@ esp_err_t getData(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    char* resp = convertSearchResultsToJSON(searchResults);
+    std::map<std::string, std::vector<std::map<std::string, std::string>>> jsonData;
+    jsonData[tableName] = searchResults;
+    char* resp = Parser::convertMapToJSON(jsonData);
     httpd_resp_send(req, resp, strlen(resp));
     free(resp);
 
@@ -230,26 +162,26 @@ esp_err_t setConfigurations(httpd_req_t *req)
     ESP_LOGI(TAG, "Query: %s", query);
 
     // Get query parameters
-    std::map<std::string, std::string> queryParams = getQueryParameters(query);
+    std::map<std::string, std::string> queryParams = Parser::getQueryParameters(query);
 
-    if (!hasKey(queryParams, "status") && !hasKey(queryParams, "time_interval")) 
+    if (!Parser::hasKey(queryParams, "status") && !Parser::hasKey(queryParams, "time_interval")) 
     {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingConfigurationsResponse);
         return ESP_FAIL;
     }
 
-    if (hasKey(queryParams, "status")) 
+    if (Parser::hasKey(queryParams, "status")) 
     {
         updateValues["status"] = queryParams["status"];
     }
 
-    if(hasKey(queryParams, "time_interval")) 
+    if(Parser::hasKey(queryParams, "time_interval")) 
     {
         updateValues["time_interval"] = queryParams["time_interval"];
     }
 
     // Parse the query parameters
-    if (!hasKey(queryParams, "engine_id")) 
+    if (!Parser::hasKey(queryParams, "engine_id")) 
     {
         db.update(tableName, updateValues);
         httpd_resp_send(req, configurationsUpdatedResponse, strlen(configurationsUpdatedResponse));
@@ -287,37 +219,6 @@ esp_err_t faviconGetHandler(httpd_req_t *req)
     httpd_resp_set_type(req, "image/x-icon");
     httpd_resp_send(req, (const char *)favicon_data_start, favicon_data_end - favicon_data_start);
     return ESP_OK;
-}
-
-// Function to parse JSON body and extract key-value pairs
-static std::map<std::string, std::string> parseCredentials(const char* body) 
-{
-    std::map<std::string, std::string> params;
-
-    // Parse JSON
-    cJSON *root = cJSON_Parse(body);
-    if (root == NULL) 
-    {
-        ESP_LOGE(TAG, "Failed to parse JSON: %s", cJSON_GetErrorPtr());
-        return params;
-    }
-
-    // Get username
-    cJSON *usernameJson = cJSON_GetObjectItemCaseSensitive(root, "username");
-    if (cJSON_IsString(usernameJson) && (usernameJson->valuestring != NULL)) 
-    {
-        params["username"] = usernameJson->valuestring;
-    }
-
-    // Get password
-    cJSON *passwordJson = cJSON_GetObjectItemCaseSensitive(root, "password");
-    if (cJSON_IsString(passwordJson) && (passwordJson->valuestring != NULL)) 
-    {
-        params["password"] = passwordJson->valuestring;
-    }
-
-    cJSON_Delete(root);
-    return params;
 }
 
 esp_err_t userLogin(httpd_req_t *req)
@@ -358,10 +259,10 @@ esp_err_t userLogin(httpd_req_t *req)
     buffer[ret] = '\0';
 
     // Parse the request body to get query parameters
-    auto credentials = parseCredentials(buffer);
+    auto credentials = Parser::parseCredentials(buffer);
 
     // Check if username and password are present
-    if (credentials.empty() || !hasKey(credentials, "username") || !hasKey(credentials, "password")) 
+    if (credentials.empty() || !Parser::hasKey(credentials, "username") || !Parser::hasKey(credentials, "password")) 
     {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingCredentialsResponse);
         free(buffer);
@@ -405,10 +306,10 @@ esp_err_t createUser(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        auto queryParams = getQueryParameters(query);
+        auto queryParams = Parser::getQueryParameters(query);
         if (!queryParams.empty())
         {
-            if (hasKey(queryParams, "username") && hasKey(queryParams, "password"))
+            if (Parser::hasKey(queryParams, "username") && Parser::hasKey(queryParams, "password"))
             {
                 UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
                 if (ESP_OK == userMan.createUser(queryParams["username"], queryParams["password"]))
@@ -444,10 +345,10 @@ esp_err_t removeUser(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        auto queryParams = getQueryParameters(query);
+        auto queryParams = Parser::getQueryParameters(query);
         if (!queryParams.empty())
         {
-            if (hasKey(queryParams, "username"))
+            if (Parser::hasKey(queryParams, "username"))
             {
                 UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
                 if(ESP_OK == userMan.removeUser(queryParams["username"]))
@@ -483,10 +384,10 @@ esp_err_t updatePassword(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Query: %s", query);
 
-        auto queryParams = getQueryParameters(query);
+        auto queryParams = Parser::getQueryParameters(query);
         if (!queryParams.empty())
         {
-            if (hasKey(queryParams, "username") && hasKey(queryParams, "old_password") && hasKey(queryParams, "new_password"))
+            if (Parser::hasKey(queryParams, "username") && Parser::hasKey(queryParams, "old_password") && Parser::hasKey(queryParams, "new_password"))
             {
                 UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
                 if(ESP_OK == userMan.updatePassword(queryParams["username"], queryParams["old_password"], queryParams["new_password"]))

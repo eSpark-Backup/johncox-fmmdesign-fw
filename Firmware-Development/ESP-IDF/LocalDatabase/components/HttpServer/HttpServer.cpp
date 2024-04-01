@@ -33,7 +33,7 @@ httpd_uri_t uri_handlers[] =
 };
 
 /* Start the HTTP server */
-void HttpServer::start(void)
+void HttpServer::start(char* (*dataCallback)(void))
 {
     # if 0
     httpd_handle_t server = NULL;
@@ -92,7 +92,7 @@ void HttpServer::start(void)
         ESP_LOGE(TAG, "Failed to start HTTP Server : %s", esp_err_to_name(ret));
     }
 
-    wss_server_send_messages(&server);
+    wss_server_send_messages(&server, dataCallback);
 }
 
 
