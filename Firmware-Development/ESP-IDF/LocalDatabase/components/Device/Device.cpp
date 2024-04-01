@@ -57,12 +57,16 @@ char* Device::getData() {
     LocalDB& db = LocalDB::getInstance();
     std::vector<std::map<std::string, std::string>> enginesData = db.search("Engines", {"*"}, {});
 
+    std::vector<std::string> enabledEngineIds;
+    std::vector<std::map<std::string, std::string>> configurations = db.search("Configurations", {"engine_id"}, {{"status", "1"}});
+    for (auto& config : configurations) {
+        enabledEngineIds.push_back(config["engine_id"]);
+    }
+
     // Function to fetch and combine data for a given table
     auto fetchAndCombineData = [&](const char* tableName) {
         std::vector<std::map<std::string, std::string>> combinedData;
-        for (auto& engine : enginesData) {
-            // Get engine_id
-            std::string engineId = engine["id"];
+        for (auto& engineId : enabledEngineIds) {
 
             // Retrieve data from the table for this engine_id
             std::vector<std::map<std::string, std::string>> tableData = db.search(tableName, {"*"}, {{"engine_id", engineId}}, true);

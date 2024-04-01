@@ -19,10 +19,10 @@ static const size_t max_clients = 4;
 httpd_uri_t uri_handlers[] = 
 {
     { .uri = "/helloWorld",         .method = HTTP_GET,     .handler = helloworld,          .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getSensorData",      .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"SensorData",      .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getFuelManagement",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"FuelManagement",  .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getSensorData",      .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"SensorData",      .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getFuelManagement",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"FuelManagement",  .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getEngines",         .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"Engines",          .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/getConfigurations",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"Configurations",  .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getEngines",         .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"Engines",          .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/setConfigurations",  .method = HTTP_GET,     .handler = setConfigurations,   .user_ctx  = (void*)"Configurations",  .is_websocket = false,     .handle_ws_control_frames = false},
     // { .uri = "/createUser",         .method = HTTP_GET,     .handler = createUser,          .user_ctx  = NULL},
     // { .uri = "/removeUser",         .method = HTTP_GET,     .handler = removeUser,          .user_ctx  = NULL},

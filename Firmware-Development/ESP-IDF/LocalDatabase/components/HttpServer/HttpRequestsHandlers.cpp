@@ -164,21 +164,13 @@ esp_err_t setConfigurations(httpd_req_t *req)
     // Get query parameters
     std::map<std::string, std::string> queryParams = Parser::getQueryParameters(query);
 
-    if (!Parser::hasKey(queryParams, "status") && !Parser::hasKey(queryParams, "time_interval")) 
+    if (!Parser::hasKey(queryParams, "status")) 
     {
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingConfigurationsResponse);
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingConfigurationParamsResponse);
         return ESP_FAIL;
     }
 
-    if (Parser::hasKey(queryParams, "status")) 
-    {
-        updateValues["status"] = queryParams["status"];
-    }
-
-    if(Parser::hasKey(queryParams, "time_interval")) 
-    {
-        updateValues["time_interval"] = queryParams["time_interval"];
-    }
+    updateValues["status"] = queryParams["status"];
 
     // Parse the query parameters
     if (!Parser::hasKey(queryParams, "engine_id")) 
@@ -201,8 +193,8 @@ esp_err_t setConfigurations(httpd_req_t *req)
     } 
     else 
     {
-        ESP_LOGE(TAG, "engine_id not found in the database");
-        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "engine_id not found in the database");
+        ESP_LOGE(TAG, "%s", engineIdNotFoundResponse);
+        httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, engineIdNotFoundResponse);
         return ESP_FAIL;
     }
 

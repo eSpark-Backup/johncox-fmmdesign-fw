@@ -18,11 +18,12 @@ JC_RESPONSE(receivingRequestBodyResponse, JSON_MESSAGE(false, "Error receiving r
 JC_RESPONSE(missingCredentialsResponse, JSON_MESSAGE(false, "Missing username or password"));
 JC_RESPONSE(authenticationFailedResponse, JSON_MESSAGE(false, "Authentication failed"));
 JC_RESPONSE(queryParseErrorResponse, JSON_MESSAGE(false, "Error parsing query parameters"));
-JC_RESPONSE(missingConfigurationsResponse, JSON_MESSAGE(false, "missing configurations parameters"));
+JC_RESPONSE(missingConfigurationParamsResponse, JSON_MESSAGE(false, "missing configurations parameters"));
 JC_RESPONSE(missingAuthorizationHeaderResponse, JSON_MESSAGE(false, "Authorization header missing"));
 JC_RESPONSE(invalidHeaderFormatResponse, JSON_MESSAGE(false, "Invalid authorization header format"));
 JC_RESPONSE(invalidTokenResponse, JSON_MESSAGE(false, "Invalid token"));
 JC_RESPONSE(expiredTokenResponse, JSON_MESSAGE(false, "Expired token"));
+JC_RESPONSE(engineIdNotFoundResponse, JSON_MESSAGE(false, "engine_id not found in the database"));
 
 JC_RESPONSE(configurationsUpdatedResponse, JSON_MESSAGE(true, "Configurations updated successfully"));
 JC_RESPONSE(helloWorldResponse, JSON_MESSAGE(true, "Hello World !!!!!"));
