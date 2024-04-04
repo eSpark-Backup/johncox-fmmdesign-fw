@@ -97,6 +97,7 @@ void Device::createTables(LocalDB& db) {
     // Create SensorData table
     db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                   "engine_id INTEGER NOT NULL, "
+                                  "trip_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
                                   "fuel_supply FLOAT NOT NULL, "
                                   "fuel_return FLOAT NOT NULL, "
@@ -115,13 +116,20 @@ void Device::createTables(LocalDB& db) {
                                       "distance_to_empty INTEGER NOT NULL");
 
     // Create Engines table
-    db.createTable("Engines", "id INTEGER PRIMARY KEY NOT NULL,"
-                              "name TEXT");
+    db.createTable("Engines", "id TINYINT PRIMARY KEY NOT NULL, "
+                          "name TEXT, "
+                          "engine_type TEXT, "
+                          "fuel_type TEXT, "
+                          "volume_per_cycle FLOAT");
 
     // Create UserCredentials table
-    db.createTable("UserCredentials", "id INTEGER PRIMARY KEY,"
+    db.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
                                       "username TEXT NOT NULL,"
                                       "password TEXT NOT NULL");
+
+    // Create Trips table
+    db.createTable("Trips", "id TINYINT PRIMARY KEY NOT NULL, "
+                            "name TEXT NOT NULL");
 }
 
 // Function to insert random values into tables
@@ -135,9 +143,11 @@ void Device::insertRandomValues(LocalDB& db) {
     std::uniform_real_distribution<float> fuelDistribution(5.0, 20.0);
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
 
-    for (int i = 1; i <= 2; ++i) {
+    for (int i = 1; i <= 10; ++i) 
+    {
         std::map<std::string, std::string> sensorData = {
-            {"engine_id", std::to_string(i)},
+            {"engine_id", (i % 2 == 0) ? "1" : "2"},
+            {"trip_id", std::to_string(i)},
             {"timestamp_unix", std::to_string(currentTime)},
             {"fuel_supply", std::to_string(fuelDistribution(gen))},
             {"fuel_return", std::to_string(fuelDistribution(gen))},
@@ -145,19 +155,15 @@ void Device::insertRandomValues(LocalDB& db) {
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };
         db.insert("SensorData", sensorData);
-    }
 
-    // Insert random data into Configurations table
-    for (int i = 1; i <= 2; ++i) {
-        std::map<std::string, std::string> configurations = {
-            {"engine_id", std::to_string(i)},
-            {"status", (i % 2 == 0) ? "1" : "0"} // Randomly set status to 1 or 0
+        // Insert data into Trips table
+        std::map<std::string, std::string> tripsData = {
+            {"id", std::to_string(i)},
+            {"name", "Trip " + std::to_string(i)}
         };
-        db.insert("Configurations", configurations);
-    }
-
-    // Insert random data into FuelManagement table
-    for (int i = 1; i <= 2; ++i) {
+        db.insert("Trips", tripsData);
+        
+        // Insert random data into FuelManagement table
         std::map<std::string, std::string> fuelManagement = {
             {"engine_id", std::to_string(i)},
             {"total_fuel_burned", std::to_string(i * 100)},
@@ -167,12 +173,25 @@ void Device::insertRandomValues(LocalDB& db) {
         db.insert("FuelManagement", fuelManagement);
     }
 
-    // Insert data into Engines table
-    for (int i = 1; i <= 2; ++i) {
+    for (int i = 1; i <= 2; ++i) 
+    {
+        // Insert data into Engines table
         std::map<std::string, std::string> enginesData = {
+            {"id", std::to_string(i)},
             {"name", "Engine M" + std::to_string(i)},
+            {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
+            {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
+            {"volume_per_cycle", std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
         };
         db.insert("Engines", enginesData);
+
+        // Insert random data into Configurations table
+        std::map<std::string, std::string> configurations = {
+            {"engine_id", std::to_string(i)},
+            {"status", (i % 2 == 0) ? "1" : "0"} // Randomly set status to 1 or 0
+        };
+        db.insert("Configurations", configurations);
+
     }
 }
 

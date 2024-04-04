@@ -37,7 +37,6 @@ extern "C" void app_main()
     devProv.start();
     MDNSService::start("timesp1");
 
-    vTaskDelay(3000/portTICK_RATE_MS);
     auto credentials = Device::getCredentials();
     ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());
     ESP_LOGI(TAG, "Generated password: %s", credentials.second.c_str());

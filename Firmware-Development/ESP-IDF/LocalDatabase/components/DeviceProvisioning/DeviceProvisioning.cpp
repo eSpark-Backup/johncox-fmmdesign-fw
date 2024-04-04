@@ -1,6 +1,7 @@
 #include "DeviceProvisioning.hpp"
 
 const int WIFI_CONNECTED_EVENT = BIT0;
+const int PROV_END_EVENT = BIT1;
 static const char *TAG = "app";
 static EventGroupHandle_t wifi_event_group;
 /* Event handler for catching system events */
@@ -53,6 +54,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
         case WIFI_PROV_END:
             /* De-initialize manager once provisioning is finished */
             wifi_prov_mgr_deinit();
+            xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
             break;
         default:
             break;
@@ -176,6 +178,7 @@ void DeviceProvisioning::start(void)
         /* Start provisioning service */
         ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
         wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
+        xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, false, true, portMAX_DELAY);
     }
     else
     {
