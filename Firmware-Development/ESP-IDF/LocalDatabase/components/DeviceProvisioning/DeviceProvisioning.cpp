@@ -1,4 +1,5 @@
 #include "DeviceProvisioning.hpp"
+#include "JCJson.hpp"
 
 const int WIFI_CONNECTED_EVENT = BIT0;
 const int PROV_END_EVENT = BIT1;
@@ -96,6 +97,72 @@ void DeviceProvisioning::getDeviceServiceName(char *service_name, size_t max)
              ssid_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
 }
 
+// Parse "type" field from incoming JSON
+static esp_err_t parseJsonType(const uint8_t *inbuf, ssize_t inlen, char **type) {
+    if (!inbuf || inlen <= 0 || !type) {
+        ESP_LOGE(TAG, "Invalid input parameters");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    std::map<std::string, std::variant<std::string, int>> keyValues = JCJson::parse(reinterpret_cast<const char*>(inbuf));
+    if (keyValues.find("type") == keyValues.end() || !std::holds_alternative<std::string>(keyValues["type"])) {
+        ESP_LOGE(TAG, "Invalid JSON format: 'type' field is missing or not a string");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    *type = strdup(std::get<std::string>(keyValues["type"]).c_str());
+
+    return ESP_OK;
+}
+
+// Handle domain request
+static esp_err_t handleDomainRequest(uint8_t **outbuf, ssize_t *outlen) 
+{
+    // Get the previously assigned domain name (if available)
+    const char *previously_assigned_domain = "";//getPreviouslyAssignedDomain(); // Your implementation to retrieve previously assigned domain
+
+    // Create JSON response
+    std::map<std::string, std::variant<std::string, int>> response_keyValues;
+    response_keyValues["type"] = std::string("domain_response");
+    response_keyValues["domain_name"] = previously_assigned_domain ? previously_assigned_domain : "";
+
+    char* response_str = JCJson::create(response_keyValues);
+
+    // Set response data
+    *outbuf = reinterpret_cast<uint8_t *>(response_str);
+    *outlen = strlen(response_str);
+
+    return ESP_OK;
+}
+
+// Handle domain assignment
+static esp_err_t handleDomainAssignment(const uint8_t *inbuf, ssize_t inlen, uint8_t **outbuf, ssize_t *outlen) 
+{
+    std::map<std::string, std::variant<std::string, int>> keyValues = JCJson::parse(reinterpret_cast<const char*>(inbuf));
+    if (keyValues.find("domain_name") == keyValues.end() || !std::holds_alternative<std::string>(keyValues["domain_name"])) {
+        ESP_LOGE(TAG, "Invalid JSON format: 'domain_name' field is missing or not a string");
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    const char *assigned_domain = std::get<std::string>(keyValues["domain_name"]).c_str();
+
+    // Perform domain assignment (your implementation)
+    esp_err_t assignment_result = ESP_OK;//performDomainAssignment(assigned_domain);
+
+    // Create JSON response
+    std::map<std::string, std::variant<std::string, int>> response_keyValues;
+    response_keyValues["type"] = std::string("domain_assignment_response");
+    response_keyValues["status"] = (assignment_result == ESP_OK) ? "success" : "fail";
+
+    char* response_str = JCJson::create(response_keyValues);
+
+    // Set response data
+    *outbuf = reinterpret_cast<uint8_t *>(response_str);
+    *outlen = strlen(response_str);
+
+    return ESP_OK;
+}
+
 /* Handler for the optional provisioning endpoint registered by the application.
  * The data format can be chosen by applications. Here, we are using plain ascii text.
  * Applications can choose to use other formats like protobuf, JSON, XML, etc.
@@ -103,6 +170,33 @@ void DeviceProvisioning::getDeviceServiceName(char *service_name, size_t max)
 esp_err_t DeviceProvisioning::domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                    uint8_t **outbuf, ssize_t *outlen, void *priv_data)
 {
+    #if 0 
+    char *type = NULL;
+
+    // Parse "type" field from incoming JSON
+    esp_err_t err = parseJsonType(inbuf, inlen, &type);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    // Process based on the type of request
+    if (strcmp(type, "domain_request") == 0) 
+    {
+        err = handleDomainRequest(outbuf, outlen);
+    } 
+    else if (strcmp(type, "domain_assignment") == 0) 
+    {
+        err = handleDomainAssignment(inbuf, inlen, outbuf, outlen);
+    } 
+    else 
+    {
+        ESP_LOGE(TAG, "Invalid 'type' field in JSON: %s", type);
+        err = ESP_ERR_INVALID_ARG;
+    }
+
+    free(type);
+    return err;
+    #else
     if (inbuf)
     {
         ESP_LOGI(TAG, "Received data: %.*s", inlen, (char *)inbuf);
@@ -117,6 +211,7 @@ esp_err_t DeviceProvisioning::domainNameDataHandler(uint32_t session_id, const u
     *outlen = strlen(response) + 1; /* +1 for NULL terminating byte */
 
     return ESP_OK;
+    #endif
 }
 
 void DeviceProvisioning::start(void)

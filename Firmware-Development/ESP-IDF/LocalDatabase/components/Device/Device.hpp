@@ -22,6 +22,8 @@ class Device
         static char* getData();
         static std::pair<std::string, std::string> getCredentials();
         static void init();
+        static esp_err_t saveDomainName(const std::string& domainName);
+        static std::string getDomainName();
 
 };
 

@@ -86,6 +86,7 @@
         "esp_http_server.h": "c",
         "*.ipp": "cpp",
         "jcerrors.h": "c",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "variant": "cpp"
     }
 }

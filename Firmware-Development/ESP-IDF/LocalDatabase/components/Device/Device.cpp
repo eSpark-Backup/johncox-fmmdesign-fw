@@ -7,6 +7,7 @@
 #include <esp_log.h>
 #include "Parser.hpp"
 #include "LocalDB.hpp"
+#include "DeviceStorage.hpp"
 
 static const char* TAG = "Device";
 
@@ -248,4 +249,14 @@ void Device::init()
     // db.printLastError();
 
     // db.close();
+}
+
+esp_err_t Device::saveDomainName(const std::string& domainName)
+{
+    return DeviceStorage::saveDomainName(domainName);
+}
+
+std::string Device::getDomainName()
+{
+    return DeviceStorage::getDomainName();
 }
