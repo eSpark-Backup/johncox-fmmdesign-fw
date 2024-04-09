@@ -40,6 +40,20 @@ std::pair<std::string, std::string> Device::generateCredentials()
     return std::make_pair(username, password);
 }
 
+std::string Device::getMAC() 
+{
+    // Retrieve the MAC address using ESP-IDF API
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    
+    // Format the MAC address as a string
+    char macStr[18];
+    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    // Return the MAC address as a string
+    return std::string(macStr);
+}
+
 std::pair<std::string, std::string> Device::getCredentials()
 {
     if(!username.empty() && !password.empty())
@@ -59,9 +73,9 @@ char* Device::getData() {
     std::vector<std::map<std::string, std::string>> enginesData = db.search("Engines", {"*"}, {});
 
     std::vector<std::string> enabledEngineIds;
-    std::vector<std::map<std::string, std::string>> configurations = db.search("Configurations", {"engine_id"}, {{"status", "1"}});
+    std::vector<std::map<std::string, std::string>> configurations = db.search("Engines", {"id"}, {{"enabled", "1"}});
     for (auto& config : configurations) {
-        enabledEngineIds.push_back(config["engine_id"]);
+        enabledEngineIds.push_back(config["id"]);
     }
 
     // Function to fetch and combine data for a given table
@@ -105,10 +119,6 @@ void Device::createTables(LocalDB& db) {
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
 
-    // Create Configurations table
-    db.createTable("Configurations", "engine_id INTEGER NOT NULL, "
-                                      "status BOOLEAN NOT NULL");
-
     // Create FuelManagement table
     db.createTable("FuelManagement", "id INTEGER PRIMARY KEY NOT NULL, "
                                       "engine_id INTEGER NOT NULL, "
@@ -119,8 +129,10 @@ void Device::createTables(LocalDB& db) {
     // Create Engines table
     db.createTable("Engines", "id TINYINT PRIMARY KEY NOT NULL, "
                           "name TEXT, "
+                          "enabled BOOLEAN NOT NULL, "
                           "engine_type TEXT, "
                           "fuel_type TEXT, "
+                          "position TEXT, "
                           "volume_per_cycle FLOAT");
 
     // Create UserCredentials table
@@ -128,9 +140,6 @@ void Device::createTables(LocalDB& db) {
                                       "username TEXT NOT NULL,"
                                       "password TEXT NOT NULL");
 
-    // Create Trips table
-    db.createTable("Trips", "id TINYINT PRIMARY KEY NOT NULL, "
-                            "name TEXT NOT NULL");
 }
 
 // Function to insert random values into tables
@@ -156,13 +165,6 @@ void Device::insertRandomValues(LocalDB& db) {
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };
         db.insert("SensorData", sensorData);
-
-        // Insert data into Trips table
-        std::map<std::string, std::string> tripsData = {
-            {"id", std::to_string(i)},
-            {"name", "Trip " + std::to_string(i)}
-        };
-        db.insert("Trips", tripsData);
         
         // Insert random data into FuelManagement table
         std::map<std::string, std::string> fuelManagement = {
@@ -182,16 +184,10 @@ void Device::insertRandomValues(LocalDB& db) {
             {"name", "Engine M" + std::to_string(i)},
             {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
             {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
-            {"volume_per_cycle", std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
+            {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
+            {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
         };
         db.insert("Engines", enginesData);
-
-        // Insert random data into Configurations table
-        std::map<std::string, std::string> configurations = {
-            {"engine_id", std::to_string(i)},
-            {"status", (i % 2 == 0) ? "1" : "0"} // Randomly set status to 1 or 0
-        };
-        db.insert("Configurations", configurations);
 
     }
 }

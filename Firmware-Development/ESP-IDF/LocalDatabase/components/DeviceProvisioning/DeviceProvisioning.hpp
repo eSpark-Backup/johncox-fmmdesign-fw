@@ -19,19 +19,20 @@
 #define CONFIG_EXAMPLE_PROV_TRANSPORT 2
 // #define CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE 1
 #define CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT 2
-// #define CONFIG_EXAMPLE_RESET_PROVISIONED 1
+#define CONFIG_EXAMPLE_RESET_PROVISIONED 1
 
 class DeviceProvisioning
 {
     public:
         void start(void);
+        void reset();
+        
+    private:
         static void eventHandler(void *arg, esp_event_base_t event_base,
                                 int32_t event_id, void *event_data);
 
         static void wifiInitSTA(void);
         static void getDeviceServiceName(char *service_name, size_t max);
-        
-    private:
         static esp_err_t domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                        uint8_t **outbuf, ssize_t *outlen, void *priv_data);
     

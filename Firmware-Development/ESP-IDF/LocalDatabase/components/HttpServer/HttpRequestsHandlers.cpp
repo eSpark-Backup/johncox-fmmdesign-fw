@@ -9,6 +9,38 @@
 
 static const char *TAG = "HttpRequestsHandlers";
 
+static esp_err_t validateToken(httpd_req_t *req) {
+    char header[128];
+    esp_err_t ret = httpd_req_get_hdr_value_str(req, "Authorization", header, sizeof(header));
+    if (ESP_OK != ret) {
+        ESP_LOGE(TAG, "%s", missingAuthorizationHeaderResponse);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, missingAuthorizationHeaderResponse);
+        return ESP_FAIL;
+    }
+
+    // Check if the header starts with "Bearer "
+    const char* bearerPrefix = "Bearer ";
+    if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) {
+        ESP_LOGE(TAG, "%s", invalidHeaderFormatResponse);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidHeaderFormatResponse);
+        return ESP_FAIL;
+    }
+
+    // Extract the token part
+    char* token = header + strlen(bearerPrefix);
+
+    // Verify the token
+    TokenStatus tokenStatus = SessionManager::verifyToken(token);
+    if (TOKEN_VALID != tokenStatus) {
+        const char* responseMessage = (TOKEN_INVALID == tokenStatus) ? invalidTokenResponse : expiredTokenResponse;
+        ESP_LOGE(TAG, "%s", responseMessage);
+        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, responseMessage);
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
 /* An HTTP GET handler */
 esp_err_t helloworld(httpd_req_t *req)
 {
@@ -101,9 +133,14 @@ esp_err_t getData(httpd_req_t *req)
     return ESP_OK;
 }
 
-esp_err_t setConfigurations(httpd_req_t *req) 
-{
+esp_err_t setConfigurations(httpd_req_t *req) {
     const char* tableName = (const char*) req->user_ctx;
+
+    // Validate token
+    esp_err_t tokenValidationResult = validateToken(req);
+    if (tokenValidationResult != ESP_OK) {
+        return tokenValidationResult;
+    }
 
     char query[256];
     std::map<std::string, std::string> updateValues;
@@ -111,49 +148,9 @@ esp_err_t setConfigurations(httpd_req_t *req)
 
     esp_err_t ret = ESP_OK; // Initialize to ESP_OK
 
-    char header[128];
-    ret = httpd_req_get_hdr_value_str(req, "Authorization", header, sizeof(header));
-    if (ESP_OK != ret) 
-    {
-        ESP_LOGE(TAG, "%s", missingAuthorizationHeaderResponse);
-        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, missingAuthorizationHeaderResponse);
-        return ESP_FAIL;
-    }
-
-    // Check if the header starts with "Bearer "
-    const char* bearerPrefix = "Bearer ";
-    if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) 
-    {
-        ESP_LOGE(TAG, "%s", invalidHeaderFormatResponse);
-        httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidHeaderFormatResponse);
-        return ESP_FAIL;
-    }
-
-    // Extract the token part
-    char* token = header + strlen(bearerPrefix);
-
-    // Verify the token
-    TokenStatus tokenStatus = SessionManager::verifyToken(token);
-    if (TOKEN_VALID != tokenStatus) 
-    {
-        if(TOKEN_INVALID == tokenStatus)
-        {
-            ESP_LOGE(TAG, "%s", invalidTokenResponse);
-            httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, invalidTokenResponse);
-            return ESP_FAIL;
-        }
-        else
-        {
-            ESP_LOGE(TAG, "%s", expiredTokenResponse);
-            httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, expiredTokenResponse);
-            return ESP_FAIL;
-        }
-    }
-
     // Get the query parameters from the request
     ret = httpd_req_get_url_query_str(req, query, sizeof(query));
-    if (ret != ESP_OK) 
-    {
+    if (ret != ESP_OK) {
         ESP_LOGE(TAG, "%s", queryParseErrorResponse);
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, queryParseErrorResponse);
         return ESP_FAIL;
@@ -164,31 +161,46 @@ esp_err_t setConfigurations(httpd_req_t *req)
     // Get query parameters
     std::map<std::string, std::string> queryParams = Parser::getQueryParameters(query);
 
-    if (!Parser::hasKey(queryParams, "status")) 
-    {
+    // List of required parameters
+    std::vector<std::string> requiredParams = {"enabled", "engine_id", "fuel_type", "engine_type", "position", "volume_per_cycle", "fuel_volume"};
+
+    // Check if at least one required parameter is present
+    bool atLeastOneParamPresent = false;
+    for (const auto& param : requiredParams) {
+        if (Parser::hasKey(queryParams, param)) {
+            atLeastOneParamPresent = true;
+            break;
+        }
+    }
+
+    // If none of the required parameters are present, send an error response
+    if (!atLeastOneParamPresent) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, missingConfigurationParamsResponse);
         return ESP_FAIL;
     }
 
-    updateValues["status"] = queryParams["status"];
+    // Loop through each required parameter and copy if exists
+    for (const auto& param : requiredParams) {
+        if (Parser::hasKey(queryParams, param)) {
+            updateValues[param] = queryParams[param];
+        }
+    }
 
-    // Parse the query parameters
-    if (!Parser::hasKey(queryParams, "engine_id")) 
-    {
+    // If engine_id is not provided, update all entries in the table
+    if (!Parser::hasKey(queryParams, "engine_id")) {
         db.update(tableName, updateValues);
         httpd_resp_send(req, configurationsUpdatedResponse, strlen(configurationsUpdatedResponse));
         return ESP_OK;
     }
 
-    ESP_LOGI(TAG, "engine_id: %s", queryParams["engine_id"].c_str());
-
+    // Update entries with specified engine_id
     std::map<std::string, std::string> filter;
-    filter["engine_id"] = queryParams["engine_id"].c_str();
+    filter["engine_id"] = queryParams["engine_id"];
+
     // Check if engine_id exists in the database
     auto searchResults = db.search(tableName, {"engine_id"}, filter);
     if (!searchResults.empty()) 
     {
-        std::map<std::string, std::string> filter = {{"engine_id", queryParams["engine_id"].c_str()}};
         db.update(tableName, updateValues, filter);
     } 
     else 

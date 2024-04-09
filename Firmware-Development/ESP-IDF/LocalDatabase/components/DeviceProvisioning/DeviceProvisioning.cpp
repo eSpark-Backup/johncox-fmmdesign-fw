@@ -1,5 +1,6 @@
 #include "DeviceProvisioning.hpp"
 #include "JCJson.hpp"
+#include "Device.hpp"
 
 const int WIFI_CONNECTED_EVENT = BIT0;
 const int PROV_END_EVENT = BIT1;
@@ -125,6 +126,7 @@ static esp_err_t handleDomainRequest(uint8_t **outbuf, ssize_t *outlen)
     std::map<std::string, std::variant<std::string, int>> response_keyValues;
     response_keyValues["type"] = std::string("domain_response");
     response_keyValues["domain_name"] = previously_assigned_domain ? previously_assigned_domain : "";
+    response_keyValues["mac_address"] = Device::getMAC();
 
     char* response_str = JCJson::create(response_keyValues);
 
@@ -152,6 +154,7 @@ static esp_err_t handleDomainAssignment(const uint8_t *inbuf, ssize_t inlen, uin
     // Create JSON response
     std::map<std::string, std::variant<std::string, int>> response_keyValues;
     response_keyValues["type"] = std::string("domain_assignment_response");
+    response_keyValues["mac_address"] = Device::getMAC();
     response_keyValues["status"] = (assignment_result == ESP_OK) ? "success" : "fail";
 
     char* response_str = JCJson::create(response_keyValues);
@@ -170,7 +173,7 @@ static esp_err_t handleDomainAssignment(const uint8_t *inbuf, ssize_t inlen, uin
 esp_err_t DeviceProvisioning::domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                    uint8_t **outbuf, ssize_t *outlen, void *priv_data)
 {
-    #if 0 
+    #if 1
     char *type = NULL;
 
     // Parse "type" field from incoming JSON
@@ -251,7 +254,11 @@ void DeviceProvisioning::start(void)
 
     bool provisioned = false;
 #ifdef CONFIG_EXAMPLE_RESET_PROVISIONED
-    wifi_prov_mgr_reset_provisioning();
+    if(Device::getDomainName().empty())
+    {
+      ESP_LOGE(TAG, "Domain-name is empty: Falling back to provisioning sequence");
+      reset();
+    }
 #else
     /* Let's find out if the device is provisioned */
     ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
@@ -290,4 +297,9 @@ void DeviceProvisioning::start(void)
     /* Wait for Wi-Fi connection */
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, false, true, portMAX_DELAY);
 
+}
+
+void DeviceProvisioning::reset()
+{
+    wifi_prov_mgr_reset_provisioning();
 }

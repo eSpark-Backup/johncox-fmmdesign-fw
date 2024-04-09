@@ -31,13 +31,18 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     Storage::init();
-    Device::saveDomainName("timeesp1");
-    ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
     Device::init();
 
     DeviceProvisioning devProv;
+    ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
+    
     devProv.start();
-    MDNSService::start("timesp1");
+    Device::saveDomainName("timesp1");
+    if (Device::getDomainName().empty())
+    {
+      esp_restart();
+    }
+    MDNSService::start(Device::getDomainName().c_str());
 
     auto credentials = Device::getCredentials();
     ESP_LOGI(TAG, "Generated username: %s", credentials.first.c_str());

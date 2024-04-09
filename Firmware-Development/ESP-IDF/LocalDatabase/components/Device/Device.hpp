@@ -24,6 +24,7 @@ class Device
         static void init();
         static esp_err_t saveDomainName(const std::string& domainName);
         static std::string getDomainName();
+        static std::string getMAC();
 
 };
 
