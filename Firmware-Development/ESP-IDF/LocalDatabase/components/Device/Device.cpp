@@ -112,7 +112,6 @@ void Device::createTables(LocalDB& db) {
     // Create SensorData table
     db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                   "engine_id INTEGER NOT NULL, "
-                                  "trip_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
                                   "fuel_supply FLOAT NOT NULL, "
                                   "fuel_return FLOAT NOT NULL, "
@@ -157,7 +156,6 @@ void Device::insertRandomValues(LocalDB& db) {
     {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
-            {"trip_id", std::to_string(i)},
             {"timestamp_unix", std::to_string(currentTime)},
             {"fuel_supply", std::to_string(fuelDistribution(gen))},
             {"fuel_return", std::to_string(fuelDistribution(gen))},
@@ -185,6 +183,7 @@ void Device::insertRandomValues(LocalDB& db) {
             {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
             {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
             {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
+            {"enabled", std::to_string(i % 2)},
             {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
         };
         db.insert("Engines", enginesData);

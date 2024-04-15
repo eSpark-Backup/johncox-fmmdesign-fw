@@ -259,10 +259,9 @@ void DeviceProvisioning::start(void)
       ESP_LOGE(TAG, "Domain-name is empty: Falling back to provisioning sequence");
       reset();
     }
-#else
+#endif
     /* Let's find out if the device is provisioned */
     ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&provisioned));
-#endif
 
     /* If device is not yet provisioned start provisioning service */
     if (!provisioned)
