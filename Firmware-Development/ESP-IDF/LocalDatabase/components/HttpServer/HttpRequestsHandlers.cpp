@@ -13,16 +13,16 @@ static esp_err_t validateToken(httpd_req_t *req) {
     char header[128];
     esp_err_t ret = httpd_req_get_hdr_value_str(req, "Authorization", header, sizeof(header));
     if (ESP_OK != ret) {
-        ESP_LOGE(TAG, "%s", missingAuthorizationHeader.errorMessage);
-        httpd_resp_send_err(req, missingAuthorizationHeader.errorCode, missingAuthorizationHeader.errorMessage);
+        ESP_LOGE(TAG, "%s", missingAuthorizationHeader.responseJson);
+        httpd_resp_send_err(req, missingAuthorizationHeader.status, missingAuthorizationHeader.responseJson);
         return ESP_FAIL;
     }
 
     // Check if the header starts with "Bearer "
     const char* bearerPrefix = "Bearer ";
     if (strncmp(header, bearerPrefix, strlen(bearerPrefix)) != 0) {
-        ESP_LOGE(TAG, "%s", invalidHeaderFormat.errorMessage);
-        httpd_resp_send_err(req, invalidHeaderFormat.errorCode, invalidHeaderFormat.errorMessage);
+        ESP_LOGE(TAG, "%s", invalidHeaderFormat.responseJson);
+        httpd_resp_send_err(req, invalidHeaderFormat.status, invalidHeaderFormat.responseJson);
         return ESP_FAIL;
     }
 
@@ -33,8 +33,8 @@ static esp_err_t validateToken(httpd_req_t *req) {
     TokenStatus tokenStatus = SessionManager::verifyToken(token);
     if (TOKEN_VALID != tokenStatus) {
         ErrorResponse response = (TOKEN_INVALID == tokenStatus) ? invalidToken : expiredToken;
-        ESP_LOGE(TAG, "%s", response.errorMessage);
-        httpd_resp_send_err(req, response.errorCode, response.errorMessage);
+        ESP_LOGE(TAG, "%s", response.responseJson);
+        httpd_resp_send_err(req, response.status, response.responseJson);
         return ESP_FAIL;
     }
 
@@ -45,7 +45,7 @@ static esp_err_t validateToken(httpd_req_t *req) {
 esp_err_t helloworld(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "HTTP GET request for /helloWorld");
-    httpd_resp_send(req, helloWorld.errorMessage, strlen(helloWorld.errorMessage));
+    httpd_resp_send(req, helloWorld.responseJson, strlen(helloWorld.responseJson));
     return ESP_OK;
 }
 
@@ -80,15 +80,43 @@ esp_err_t getData(httpd_req_t *req)
 
     if (enabledEngineIds.empty()) {
         // No enabled engines found, send error response
-        httpd_resp_send_err(req, noEnabledEngines.errorCode, noEnabledEngines.errorMessage);
+        httpd_resp_send_err(req, noEnabledEngines.status, noEnabledEngines.responseJson);
         return ESP_FAIL;
     }
 
     // Combine data for the specified table
     jsonData[tableName] = fetchAndCombineData(tableName);
 
+    const std::map<std::string, std::string> responseParams = {
+        {"status", dataRetrieved.statusString},
+        {"message", dataRetrieved.message}
+    };
+
     // Convert jsonData to JSON
-    char* resp = Parser::convertMapToJSON(jsonData);
+    char* resp = Parser::convertMapToJSON(jsonData, responseParams);
+    httpd_resp_send(req, resp, strlen(resp));
+    free(resp);
+
+    return ESP_OK;
+}
+
+esp_err_t getEngines(httpd_req_t *req) {
+    // Map to hold the search results
+    std::map<std::string, std::vector<std::map<std::string, std::string>>> jsonData;
+    
+    // Retrieve data from Engines table to get all ids
+    LocalDB& db = LocalDB::getInstance();
+    std::vector<std::map<std::string, std::string>> enginesData = db.search("Engines", {"*"}, {});
+
+    jsonData["Engines"] = enginesData;
+
+    const std::map<std::string, std::string> responseParams = {
+        {"status", dataRetrieved.statusString},
+        {"message", dataRetrieved.message}
+    };
+
+    // Convert jsonData to JSON
+    char* resp = Parser::convertMapToJSON(jsonData, responseParams);
     httpd_resp_send(req, resp, strlen(resp));
     free(resp);
 
@@ -116,8 +144,8 @@ esp_err_t setConfigurations(httpd_req_t *req)
     ret = httpd_req_get_url_query_str(req, query, sizeof(query));
     if (ret != ESP_OK) 
     {
-        ESP_LOGE(TAG, "%s", queryParseError.errorMessage);
-        httpd_resp_send_err(req, queryParseError.errorCode, queryParseError.errorMessage);
+        ESP_LOGE(TAG, "%s", queryParseError.responseJson);
+        httpd_resp_send_err(req, queryParseError.status, queryParseError.responseJson);
         return ESP_FAIL;
     }
 
@@ -143,7 +171,7 @@ esp_err_t setConfigurations(httpd_req_t *req)
     // If none of the required parameters are present, send an error response
     if (!atLeastOneParamPresent) 
     {
-        httpd_resp_send_err(req, missingConfigurationParams.errorCode, missingConfigurationParams.errorMessage);
+        httpd_resp_send_err(req, missingConfigurationParams.status, missingConfigurationParams.responseJson);
         return ESP_FAIL;
     }
 
@@ -160,7 +188,7 @@ esp_err_t setConfigurations(httpd_req_t *req)
     // If engine_id is not provided, update all entries in the table
     if (!Parser::hasKey(queryParams, "engine_id")) {
         db.update(tableName, updateValues);
-        httpd_resp_send(req, configurationsUpdated.errorMessage, strlen(configurationsUpdated.errorMessage));
+        httpd_resp_send(req, configurationsUpdated.responseJson, strlen(configurationsUpdated.responseJson));
         return ESP_OK;
     }
 
@@ -176,13 +204,13 @@ esp_err_t setConfigurations(httpd_req_t *req)
     } 
     else 
     {
-        ESP_LOGE(TAG, "%s", engineIdNotFound.errorMessage);
-        httpd_resp_send_err(req, engineIdNotFound.errorCode, engineIdNotFound.errorMessage);
+        ESP_LOGE(TAG, "%s", engineIdNotFound.responseJson);
+        httpd_resp_send_err(req, engineIdNotFound.status, engineIdNotFound.responseJson);
         return ESP_FAIL;
     }
 
     // Send success response
-    httpd_resp_send(req, configurationsUpdated.errorMessage, strlen(configurationsUpdated.errorMessage));
+    httpd_resp_send(req, configurationsUpdated.responseJson, strlen(configurationsUpdated.responseJson));
     return ESP_OK;
 }
 
@@ -206,8 +234,8 @@ esp_err_t userLogin(httpd_req_t *req)
     int content_length = req->content_len;
     if (content_length <= 0) 
     {
-        ESP_LOGE(TAG, "%s", emptyRequestBody.errorMessage);
-        httpd_resp_send_err(req, emptyRequestBody.errorCode, emptyRequestBody.errorMessage);
+        ESP_LOGE(TAG, "%s", emptyRequestBody.responseJson);
+        httpd_resp_send_err(req, emptyRequestBody.status, emptyRequestBody.responseJson);
         return ESP_FAIL;
     }
 
@@ -215,8 +243,8 @@ esp_err_t userLogin(httpd_req_t *req)
     buffer = (char*)malloc(content_length + 1);
     if (!buffer) 
     {
-        ESP_LOGE(TAG, "%s", memoryAllocationFailed.errorMessage);
-        httpd_resp_send_err(req, memoryAllocationFailed.errorCode, memoryAllocationFailed.errorMessage);
+        ESP_LOGE(TAG, "%s", memoryAllocationFailed.responseJson);
+        httpd_resp_send_err(req, memoryAllocationFailed.status, memoryAllocationFailed.responseJson);
         return ESP_FAIL;
     }
 
@@ -224,9 +252,9 @@ esp_err_t userLogin(httpd_req_t *req)
     ret = httpd_req_recv(req, buffer, content_length);
     if (ret <= 0) 
     {
-        ESP_LOGE(TAG, "%s", receivingRequestBody.errorMessage);
+        ESP_LOGE(TAG, "%s", receivingRequestBody.responseJson);
         free(buffer);
-        httpd_resp_send_err(req, receivingRequestBody.errorCode, receivingRequestBody.errorMessage);
+        httpd_resp_send_err(req, receivingRequestBody.status, receivingRequestBody.responseJson);
         return ESP_FAIL;
     }
 
@@ -239,7 +267,7 @@ esp_err_t userLogin(httpd_req_t *req)
     // Check if username and password are present
     if (credentials.empty() || !Parser::hasKey(credentials, "username") || !Parser::hasKey(credentials, "password")) 
     {
-        httpd_resp_send_err(req, missingCredentials.errorCode, missingCredentials.errorMessage);
+        httpd_resp_send_err(req, missingCredentials.status, missingCredentials.responseJson);
         free(buffer);
         return ESP_FAIL;
     }
@@ -249,7 +277,7 @@ esp_err_t userLogin(httpd_req_t *req)
     ret = userMan.authenticateUser(credentials["username"], credentials["password"]);
     if (ret != ESP_OK) 
     {
-        httpd_resp_send_err(req, authenticationFailed.errorCode, authenticationFailed.errorMessage);
+        httpd_resp_send_err(req, authenticationFailed.status, authenticationFailed.responseJson);
         free(buffer);
         return ESP_FAIL;
     }

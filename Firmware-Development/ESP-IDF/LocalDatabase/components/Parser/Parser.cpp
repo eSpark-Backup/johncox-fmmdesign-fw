@@ -77,6 +77,13 @@ namespace Parser {
                                  const std::map<std::string, std::string>& additionalParams)
     {
         cJSON *root = cJSON_CreateObject(); // Create JSON root object
+
+        // Add additional parameters to the root object if provided
+        for (const auto& [key, value] : additionalParams) 
+        {
+            cJSON_AddStringToObject(root, key.c_str(), value.c_str());
+        }
+        
         cJSON *dataObject = cJSON_CreateObject(); // Create JSON object for data
 
         // Iterate over each key-value pair in the map
@@ -105,12 +112,6 @@ namespace Parser {
 
         // Add the data object to the root object with the "data" key
         cJSON_AddItemToObject(root, "data", dataObject);
-
-        // Add additional parameters to the root object if provided
-        for (const auto& [key, value] : additionalParams) 
-        {
-            cJSON_AddStringToObject(root, key.c_str(), value.c_str());
-        }
 
         // Convert cJSON root object to JSON string
         char *jsonString = cJSON_Print(root);

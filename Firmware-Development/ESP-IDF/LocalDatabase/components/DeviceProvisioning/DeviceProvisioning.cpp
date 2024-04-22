@@ -120,12 +120,12 @@ static esp_err_t parseJsonType(const uint8_t *inbuf, ssize_t inlen, char **type)
 static esp_err_t handleDomainRequest(uint8_t **outbuf, ssize_t *outlen) 
 {
     // Get the previously assigned domain name (if available)
-    const char *previously_assigned_domain = "";//getPreviouslyAssignedDomain(); // Your implementation to retrieve previously assigned domain
+    std::string previously_assigned_domain = Device::getDomainName(); // Your implementation to retrieve previously assigned domain
 
     // Create JSON response
     std::map<std::string, std::variant<std::string, int>> response_keyValues;
     response_keyValues["type"] = std::string("domain_response");
-    response_keyValues["domain_name"] = previously_assigned_domain ? previously_assigned_domain : "";
+    response_keyValues["domain_name"] = previously_assigned_domain.c_str();
     response_keyValues["mac_address"] = Device::getMAC();
 
     char* response_str = JCJson::create(response_keyValues);
@@ -146,10 +146,10 @@ static esp_err_t handleDomainAssignment(const uint8_t *inbuf, ssize_t inlen, uin
         return ESP_ERR_INVALID_ARG;
     }
 
-    const char *assigned_domain = std::get<std::string>(keyValues["domain_name"]).c_str();
+    std::string assigned_domain = std::get<std::string>(keyValues["domain_name"]);
 
     // Perform domain assignment (your implementation)
-    esp_err_t assignment_result = ESP_OK;//performDomainAssignment(assigned_domain);
+    esp_err_t assignment_result = Device::saveDomainName(assigned_domain);
 
     // Create JSON response
     std::map<std::string, std::variant<std::string, int>> response_keyValues;

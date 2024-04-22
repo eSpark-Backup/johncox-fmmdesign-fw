@@ -37,7 +37,7 @@ extern "C" void app_main()
     ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
     
     devProv.start();
-    Device::saveDomainName("timesp1");
+    // Device::saveDomainName("timesp1");
     if (Device::getDomainName().empty())
     {
       esp_restart();

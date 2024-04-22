@@ -3,6 +3,7 @@
 #include <esp_err.h>
 
 esp_err_t getData(httpd_req_t *req);
+esp_err_t getEngines(httpd_req_t *req);
 esp_err_t setConfigurations(httpd_req_t *req);
 esp_err_t faviconGetHandler(httpd_req_t *req);
 esp_err_t userLogin(httpd_req_t *req);

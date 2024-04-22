@@ -59,7 +59,7 @@ std::string SessionManager::generateRandomKey(int length)
 
 std::string SessionManager::getBearerToken() 
 {
-    if (!((previousTokenGenerationTime == 0) || (getTimeElapsedSinceTokenGeneration() > MINUTES_TO_SECONDS(1))))
+    if (!((previousTokenGenerationTime == 0) || (getTimeElapsedSinceTokenGeneration() > TOKEN_EXPIRE_DURATION)))
     {
         return token;
     }
@@ -130,7 +130,7 @@ std::string SessionManager::parseUsername(const char* payload)
 
 TokenStatus SessionManager::verifyToken(char* token) 
 {
-    if ((previousTokenGenerationTime == 0) || getTimeElapsedSinceTokenGeneration() > MINUTES_TO_SECONDS(1))
+    if ((previousTokenGenerationTime == 0) || getTimeElapsedSinceTokenGeneration() > TOKEN_EXPIRE_DURATION)
     {
         return TOKEN_EXPIRED;
     }

@@ -7,17 +7,18 @@ typedef enum{
 } httpd_success_code_t;
 
 #ifdef JC_RESPONSES_DEFINE
-#define JC_RESPONSE(varName, errorCode, errorMessage) \
-    const ErrorResponse varName = {errorCode, #errorCode, JSON_MESSAGE(errorCode, errorMessage)}
+#define JC_RESPONSE(varName, status, message) \
+    const ErrorResponse varName = {status, message, #status, JSON_MESSAGE(status, message)}
 #else
 #define JC_RESPONSE(varName, errorCode, errorMessage) \
     extern const ErrorResponse varName
 #endif
 
 typedef struct {
-    httpd_err_code_t errorCode;
-    const char* errorString;
-    const char* errorMessage;
+    httpd_err_code_t status;
+    const char* message;
+    const char* statusString;
+    const char* responseJson;
 } ErrorResponse;
 
 #define JSON_MESSAGE(errorCode, errorMessage) \
@@ -42,4 +43,5 @@ JC_RESPONSE(noEnabledEngines, HTTPD_403_FORBIDDEN, "No enabled engines found");
  
 JC_RESPONSE(configurationsUpdated, HTTPD_200_OK, "Configurations updated successfully");
 JC_RESPONSE(helloWorld, HTTPD_200_OK, "Hello World !!!!!");
+JC_RESPONSE(dataRetrieved, HTTPD_200_OK, "Data retrieved successfully");
 // JC_RESPONSE(loginSuccessResponse, JSON_MESSAGE(true, "User login successful"));

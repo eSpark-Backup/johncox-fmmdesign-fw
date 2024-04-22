@@ -115,6 +115,7 @@ void Device::createTables(LocalDB& db) {
                                   "timestamp_unix INTEGER NOT NULL, "
                                   "fuel_supply FLOAT NOT NULL, "
                                   "fuel_return FLOAT NOT NULL, "
+                                  "speed FLOAT NOT NULL, "
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
 
@@ -151,12 +152,14 @@ void Device::insertRandomValues(LocalDB& db) {
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> fuelDistribution(5.0, 20.0);
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
+    std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
     for (int i = 1; i <= 10; ++i) 
     {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(currentTime)},
+            {"speed", std::to_string(speedDistribution(gen))},
             {"fuel_supply", std::to_string(fuelDistribution(gen))},
             {"fuel_return", std::to_string(fuelDistribution(gen))},
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
