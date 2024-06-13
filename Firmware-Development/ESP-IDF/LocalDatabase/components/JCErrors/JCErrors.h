@@ -39,7 +39,10 @@ JC_RESPONSE(invalidHeaderFormat, HTTPD_401_UNAUTHORIZED, "Invalid authorization 
 JC_RESPONSE(invalidToken, HTTPD_401_UNAUTHORIZED, "Invalid token"); 
 JC_RESPONSE(expiredToken, HTTPD_401_UNAUTHORIZED, "Expired token"); 
 JC_RESPONSE(engineIdNotFound, HTTPD_404_NOT_FOUND, "engine_id not found in the database"); 
+JC_RESPONSE(engineIdNotProvided, HTTPD_404_NOT_FOUND, "engine_id not provided"); 
 JC_RESPONSE(noEnabledEngines, HTTPD_403_FORBIDDEN, "No enabled engines found"); 
+JC_RESPONSE(invalidJson, HTTPD_400_BAD_REQUEST, "Invalid JSON"); 
+JC_RESPONSE(invalidJsonStructure, HTTPD_400_BAD_REQUEST, "Invalid JSON structure"); 
  
 JC_RESPONSE(configurationsUpdated, HTTPD_200_OK, "Configurations updated successfully");
 JC_RESPONSE(helloWorld, HTTPD_200_OK, "Hello World !!!!!");

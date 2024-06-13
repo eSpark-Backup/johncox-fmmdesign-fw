@@ -6,6 +6,7 @@
 #include "SessionManager.hpp"
 #include <esp_log.h>
 #include "Parser.hpp"
+#include "cJSON.h" 
 
 static const char *TAG = "HttpRequestsHandlers";
 
@@ -139,80 +140,114 @@ esp_err_t setConfigurations(httpd_req_t *req)
         return tokenValidationResult;
     }
 
-    char query[256];
-    std::map<std::string, std::string> updateValues;
+    // Allocate memory for the request body
+    int total_len = req->content_len;
+    char* buf = (char*) malloc(total_len + 1);
+    if (buf == NULL) 
+    {
+        httpd_resp_send_err(req, memoryAllocationFailed.status, memoryAllocationFailed.responseJson);
+        return ESP_FAIL;
+    }
+
+    // Read the request body
+    int ret = httpd_req_recv(req, buf, total_len);
+    if (ret <= 0) 
+    {
+        free(buf);
+        if (ret == HTTPD_SOCK_ERR_TIMEOUT) 
+        {
+            httpd_resp_send_408(req);
+        }
+        return ESP_FAIL;
+    }
+    buf[total_len] = '\0'; // Null-terminate the request body
+
+    // Parse JSON
+    cJSON *root = cJSON_Parse(buf);
+    free(buf);
+    if (!root) 
+    {
+        httpd_resp_send_err(req, invalidJson.status, invalidJson.responseJson);
+        return ESP_FAIL;
+    }
+
+    // Extract data array from JSON
+    cJSON *data_array = cJSON_GetObjectItem(root, "data");
+    if (!cJSON_IsArray(data_array)) 
+    {
+        cJSON_Delete(root);
+        httpd_resp_send_err(req, invalidJsonStructure.status, invalidJsonStructure.responseJson);
+        return ESP_FAIL;
+    }
+
+    // Process each configuration in the data array
+    cJSON *config = NULL;
     LocalDB& db = LocalDB::getInstance();
 
-    esp_err_t ret = ESP_OK; // Initialize to ESP_OK
-
-    // Get the query parameters from the request
-    ret = httpd_req_get_url_query_str(req, query, sizeof(query));
-    if (ret != ESP_OK) 
+    cJSON_ArrayForEach(config, data_array) 
     {
-        ESP_LOGE(TAG, "%s", queryParseError.responseJson);
-        httpd_resp_send_err(req, queryParseError.status, queryParseError.responseJson);
-        return ESP_FAIL;
-    }
-
-    ESP_LOGI(TAG, "Query: %s", query);
-
-    // Get query parameters
-    std::map<std::string, std::string> queryParams = Parser::getQueryParameters(query);
-
-    // List of required parameters
-    std::vector<std::string> requiredParams = {"enabled", "engine_id", "fuel_type", "engine_type", "position", "volume_per_cycle", "fuel_volume"};
-
-    // Check if at least one required parameter is present
-    bool atLeastOneParamPresent = false;
-    for (const auto& param : requiredParams) 
-    {
-        if (Parser::hasKey(queryParams, param)) 
+        if (!cJSON_IsObject(config)) 
         {
-            atLeastOneParamPresent = true;
-            break;
+            continue;
+        }
+
+        std::map<std::string, std::string> updateValues;
+        std::string engine_id;
+
+        // Extract required parameters
+        cJSON *engine_id_item = cJSON_GetObjectItem(config, "engine_id");
+        if (cJSON_IsString(engine_id_item)) 
+        {
+            engine_id = engine_id_item->valuestring;
+        }
+
+        std::vector<std::string> requiredParams = {"enabled", "fuel_type", "engine_type", "position", "volume_per_cycle", "fuel_volume"};
+
+        bool atLeastOneParamPresent = false;
+        for (const auto& param : requiredParams) 
+        {
+            cJSON *item = cJSON_GetObjectItem(config, param.c_str());
+            if (cJSON_IsString(item) || cJSON_IsNumber(item)) 
+            {
+                updateValues[param] = item->valuestring;
+                atLeastOneParamPresent = true;
+            }
+        }
+
+        if (!atLeastOneParamPresent) 
+        {
+            cJSON_Delete(root);
+            httpd_resp_send_err(req, missingConfigurationParams.status, missingConfigurationParams.responseJson);
+            return ESP_FAIL;
+        }
+
+        // Update the database
+        if (!engine_id.empty()) 
+        {
+            std::map<std::string, std::string> filter;
+            filter["id"] = engine_id;
+
+            // Check if engine_id exists in the database
+            auto searchResults = db.search(tableName, {"*"}, filter);
+            if (!searchResults.empty()) 
+            {
+                db.update(tableName, updateValues, filter);
+            } 
+            else 
+            {
+                cJSON_Delete(root);
+                httpd_resp_send_err(req, engineIdNotFound.status, engineIdNotFound.responseJson);
+                return ESP_FAIL;
+            }
+        }
+        else
+        {
+            cJSON_Delete(root);
+            httpd_resp_send_err(req, engineIdNotProvided.status, engineIdNotProvided.responseJson);
         }
     }
 
-    // If none of the required parameters are present, send an error response
-    if (!atLeastOneParamPresent) 
-    {
-        httpd_resp_send_err(req, missingConfigurationParams.status, missingConfigurationParams.responseJson);
-        return ESP_FAIL;
-    }
-
-    // Loop through each required parameter and copy if exists
-    for (const auto& param : requiredParams) 
-    {
-        if (Parser::hasKey(queryParams, param)) 
-        {
-            updateValues[param] = queryParams[param];
-        }
-    }
-    updateValues.erase("engine_id");
-
-    // If engine_id is not provided, update all entries in the table
-    if (!Parser::hasKey(queryParams, "engine_id")) {
-        db.update(tableName, updateValues);
-        httpd_resp_send(req, configurationsUpdated.responseJson, strlen(configurationsUpdated.responseJson));
-        return ESP_OK;
-    }
-
-    // Update entries with specified engine_id
-    std::map<std::string, std::string> filter;
-    filter["id"] = queryParams["engine_id"];
-
-    // Check if engine_id exists in the database
-    auto searchResults = db.search(tableName, {"*"}, filter);
-    if (!searchResults.empty()) 
-    {
-        db.update(tableName, updateValues, filter);
-    } 
-    else 
-    {
-        ESP_LOGE(TAG, "%s", engineIdNotFound.responseJson);
-        httpd_resp_send_err(req, engineIdNotFound.status, engineIdNotFound.responseJson);
-        return ESP_FAIL;
-    }
+    cJSON_Delete(root);
 
     // Send success response
     httpd_resp_send(req, configurationsUpdated.responseJson, strlen(configurationsUpdated.responseJson));

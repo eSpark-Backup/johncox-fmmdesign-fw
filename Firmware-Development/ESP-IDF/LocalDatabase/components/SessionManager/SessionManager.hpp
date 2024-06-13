@@ -6,7 +6,7 @@
 #define MINUTES_TO_SECONDS(x) ((x) * 60)
 #define HOURS_TO_SECONDS(x) (MINUTES_TO_SECONDS((x)* 60))
 
-#define TOKEN_EXPIRE_DURATION MINUTES_TO_SECONDS(3) //minutes
+#define TOKEN_EXPIRE_DURATION MINUTES_TO_SECONDS(10) //minutes
 
 enum TokenStatus 
 {

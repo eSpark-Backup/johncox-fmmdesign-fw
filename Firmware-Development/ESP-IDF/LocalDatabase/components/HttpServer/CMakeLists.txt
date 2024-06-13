@@ -12,6 +12,7 @@ idf_component_register(SRCS	"HttpServer.cpp" "HttpRequestsHandlers.cpp"
                             JCErrors
                             SessionManager
                             Websockets
+                            json
 
                             EMBED_TXTFILES 
                             "favicon.ico"
