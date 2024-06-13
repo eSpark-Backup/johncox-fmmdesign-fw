@@ -45,6 +45,7 @@ static esp_err_t validateToken(httpd_req_t *req) {
 esp_err_t helloworld(httpd_req_t *req)
 {
     ESP_LOGI(TAG, "HTTP GET request for /helloWorld");
+    httpd_resp_set_type(req, "application/json");
     httpd_resp_send(req, helloWorld.responseJson, strlen(helloWorld.responseJson));
     return ESP_OK;
 }
@@ -52,6 +53,7 @@ esp_err_t helloworld(httpd_req_t *req)
 esp_err_t getData(httpd_req_t *req) 
 {
     const char* tableName = (const char*) req->user_ctx;
+    httpd_resp_set_type(req, "application/json");
 
     // Retrieve enabled engine ids
     std::vector<std::string> enabledEngineIds;
@@ -101,6 +103,8 @@ esp_err_t getData(httpd_req_t *req)
 }
 
 esp_err_t getEngines(httpd_req_t *req) {
+
+    httpd_resp_set_type(req, "application/json");
     // Map to hold the search results
     std::map<std::string, std::vector<std::map<std::string, std::string>>> jsonData;
     
@@ -126,6 +130,7 @@ esp_err_t getEngines(httpd_req_t *req) {
 esp_err_t setConfigurations(httpd_req_t *req) 
 {
     const char* tableName = (const char*) req->user_ctx;
+    httpd_resp_set_type(req, "application/json");
 
     // Validate token
     esp_err_t tokenValidationResult = validateToken(req);
@@ -230,6 +235,7 @@ esp_err_t userLogin(httpd_req_t *req)
 
     esp_err_t ret = ESP_OK;
 
+    httpd_resp_set_type(req, "application/json");
     // Check content length
     int content_length = req->content_len;
     if (content_length <= 0) 

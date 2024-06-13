@@ -42,6 +42,7 @@ extern "C" void app_main()
     {
       esp_restart();
     }
+    ESP_LOGE(TAG, "Assigned Domain Name: %s", Device::getDomainName().c_str());
     MDNSService::start(Device::getDomainName().c_str());
 
     auto credentials = Device::getCredentials();

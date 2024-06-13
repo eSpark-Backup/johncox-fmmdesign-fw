@@ -113,8 +113,7 @@ void Device::createTables(LocalDB& db) {
     db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                   "engine_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
-                                  "fuel_supply FLOAT NOT NULL, "
-                                  "fuel_return FLOAT NOT NULL, "
+                                  "fuel FLOAT NOT NULL, "
                                   "speed FLOAT NOT NULL, "
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
@@ -160,8 +159,7 @@ void Device::insertRandomValues(LocalDB& db) {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(currentTime)},
             {"speed", std::to_string(speedDistribution(gen))},
-            {"fuel_supply", std::to_string(fuelDistribution(gen))},
-            {"fuel_return", std::to_string(fuelDistribution(gen))},
+            {"fuel", std::to_string(fuelDistribution(gen))},
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };

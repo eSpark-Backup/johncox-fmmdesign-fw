@@ -22,7 +22,7 @@ typedef struct {
 } ErrorResponse;
 
 #define JSON_MESSAGE(errorCode, errorMessage) \
-    "{\n\t\t\"status\": " #errorCode ",\n\t\t\"message\": \"" errorMessage "\"\n\t}"
+    "{\n\t\t\"status\": \"" #errorCode "\",\n\t\t\"message\": \"" errorMessage "\"\n\t}"
 
 #define JSON_MESSAGE_WITH_TOKEN(errorCode, message, token) \
     "{\n\t\"status\": " #errorCode ",\n\t\"message\": \"" message "\",\n\t\"token\": \"" + token + "\"\n}"
