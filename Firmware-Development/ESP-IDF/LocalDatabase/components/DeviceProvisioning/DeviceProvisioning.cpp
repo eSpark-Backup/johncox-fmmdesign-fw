@@ -65,6 +65,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
     
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
+        ESP_LOGI(TAG, "Event: WIFI_EVENT_STA_START");
         esp_wifi_connect();
     }
 
@@ -75,11 +76,11 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
     }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
-    {
-        ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
-        esp_wifi_connect();
-    }
+    // else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    // {
+    //     ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+    //     esp_wifi_connect();
+    // }
 }
 
 void DeviceProvisioning::wifiInitSTA(void)
