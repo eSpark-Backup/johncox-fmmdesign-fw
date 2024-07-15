@@ -13,7 +13,7 @@ static const char *TAG = "wifi station";
 */
 #define EXAMPLE_ESP_WIFI_SSID      "eSpark Wifi"
 #define EXAMPLE_ESP_WIFI_PASS      "47356880"
-#define EXAMPLE_ESP_MAXIMUM_RETRY  5
+#define EXAMPLE_ESP_MAXIMUM_RETRY  10
 
 #define CONFIG_ESP_WIFI_AUTH_OPEN 1
 

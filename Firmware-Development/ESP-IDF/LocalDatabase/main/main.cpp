@@ -30,8 +30,8 @@ extern "C" void app_main()
     }
     ESP_ERROR_CHECK(ret);
     
-    Storage::init();
-    Device::init();
+    Storage::init();        // Initializing storage (SPIFF/NAND)
+    Device::init();         // Initializing database and inserting values
 
     DeviceProvisioning devProv;
     ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());

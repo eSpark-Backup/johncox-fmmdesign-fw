@@ -23,18 +23,27 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
         case WIFI_PROV_CRED_RECV:
         {
             wifi_sta_config_t *wifi_sta_cfg = (wifi_sta_config_t *)event_data;
+            wifi_sta_cfg->failure_retry_cnt = CONFIG_PROV_MGR_MAX_RETRY_CNT-1;
             ESP_LOGI(TAG, "Received Wi-Fi credentials"
-                          "\n\tSSID     : %s\n\tPassword : %s",
+                          "\n\tSSID         : %s\n\tPassword     : %s\n\tRetry Count  : %d",
                      (const char *)wifi_sta_cfg->ssid,
-                     (const char *)wifi_sta_cfg->password);
+                     (const char *)wifi_sta_cfg->password,
+                     wifi_sta_cfg->failure_retry_cnt+1
+                     );
+
+            wifi_config_t confg
+            {
+                .sta = *wifi_sta_cfg
+            };
+            ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &confg) );
             break;
         }
         case WIFI_PROV_CRED_FAIL:
         {
             wifi_prov_sta_fail_reason_t *reason = (wifi_prov_sta_fail_reason_t *)event_data;
-            ESP_LOGE(TAG, "Provisioning failed!\n\tReason : %s"
-                          "\n\tPlease reset to factory and retry provisioning",
-                     (*reason == WIFI_PROV_STA_AUTH_ERROR) ? "Wi-Fi station authentication failed" : "Wi-Fi access-point not found");
+            ESP_LOGE(TAG, "Provisioning failed!\n\tReason : %s",
+                     (*reason == WIFI_PROV_STA_AUTH_ERROR) ? "Wi-Fi station authentication failed." : "Wi-Fi access-point not found.");
+            ESP_LOGW(TAG, "Please retry provisioning.");
 #ifdef CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE
             retries++;
             if (retries >= CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT)
@@ -44,6 +53,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 retries = 0;
             }
 #endif
+            wifi_prov_mgr_reset_sm_state_on_failure();
             break;
         }
 
