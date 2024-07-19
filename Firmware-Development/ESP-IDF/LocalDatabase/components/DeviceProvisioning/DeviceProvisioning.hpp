@@ -21,17 +21,27 @@
 #define CONFIG_PROV_MGR_MAX_RETRY_CNT 10
 #define CONFIG_EXAMPLE_RESET_PROVISIONED 1
 
+typedef enum
+{
+    WIFI_PROVISION = 1,
+    WIFI_CHECK_PROVISION,
+    WIFI_CONNECT
+}wifi_operation_e;
+
 class DeviceProvisioning
 {
     public:
         void start(void);
-        void reset();
+        void reset(void);
+        static void provisioningTask(void *pvParameters);
         
     private:
         static void eventHandler(void *arg, esp_event_base_t event_base,
                                 int32_t event_id, void *event_data);
 
         static void wifiInitSTA(void);
+        static void wifiConnSTA(void);
+        static void provMgrStart(void);
         static void getDeviceServiceName(char *service_name, size_t max);
         static esp_err_t domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                        uint8_t **outbuf, ssize_t *outlen, void *priv_data);

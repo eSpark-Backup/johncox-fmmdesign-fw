@@ -30,7 +30,7 @@ httpd_uri_t uri_handlers[] =
     { .uri = "/userLogin",          .method = HTTP_POST,    .handler = userLogin,           .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/favicon.ico",        .method = HTTP_GET,     .handler = faviconGetHandler,   .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/ws",                 .method = HTTP_GET,     .handler = ws_handler,          .user_ctx  = NULL,                     .is_websocket = true,      .handle_ws_control_frames = true},
-    // { .uri = "/startprovision",     .method = HTTP_POST,     .handler = ws_handler,          .user_ctx  = NULL,                     .is_websocket = false,      .handle_ws_control_frames = true}
+    // { .uri = "/startprovision",     .method = HTTP_POST,     .handler = ws_handler,          .user_ctx  = NULL,                     .is_websocket = false,      .handle_ws_control_frames = false}
 };
 
 /* Start the HTTP server */

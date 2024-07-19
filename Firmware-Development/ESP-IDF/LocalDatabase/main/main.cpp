@@ -31,15 +31,17 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     Storage::init();        // Initializing storage (SPIFF/NAND)
-    Device::init();         // Initializing database and inserting values
+    Device::init();         // Initializing database (and inserting values)
 
     DeviceProvisioning devProv;
+
+    Device::saveDomainName("timesp1");
     ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
     
     devProv.start();
-    // Device::saveDomainName("timesp1");
     if (Device::getDomainName().empty())
     {
+      ESP_LOGW(TAG, "Domain name not found, restarting device.");
       esp_restart();
     }
     ESP_LOGE(TAG, "Assigned Domain Name: %s", Device::getDomainName().c_str());

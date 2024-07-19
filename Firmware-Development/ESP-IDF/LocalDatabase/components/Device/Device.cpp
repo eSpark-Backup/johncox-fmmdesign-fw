@@ -192,7 +192,7 @@ void Device::insertRandomValues(LocalDB& db) {
     }
 }
 
-void Device::init() 
+void Device:: init() 
 {
     static const char* filename = "/spiffs/test.db";
     LocalDB& db = LocalDB::getInstance(filename);

@@ -48,6 +48,7 @@ std::string DeviceStorage::getDomainName() {
     err = nvs_open("storage", NVS_READONLY, &nvsHandle);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Error opening NVS");
+        nvs_close(nvsHandle);
         return "";
     }
 
