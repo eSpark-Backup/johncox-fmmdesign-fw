@@ -7,10 +7,12 @@
 const int WIFI_CONNECTED_EVENT = BIT0;
 const int PROV_END_EVENT = BIT1;
 static const char *TAG = "DeviceProvisioning";
+
 static EventGroupHandle_t wifi_event_group;
 static bool is_provisioned = false;
+static wifi_state_e wifi_state = WIFI_DEFAULT;
 
-static QueueHandle_t wifi_prov_state = NULL;
+static QueueHandle_t wifi_prov_queue = NULL;
 // void provisioningTask(void *pvParameters);
 
 /* Event handler for catching system events */
@@ -75,6 +77,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 /* De-initialize manager once provisioning is finished */
                 wifi_prov_mgr_deinit();
                 xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
+                wifi_state = WIFI_CONNECTED;
                 break;
             }
             default:
@@ -84,12 +87,13 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
             }
         }
     }
-    else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
+    else if (event_base == IP_EVENT)
     {
         switch (event_id)
         {
             case IP_EVENT_STA_GOT_IP:
             {
+                wifi_state = WIFI_CONNECTED;
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
                 ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
                 /* Signal main application to continue execution */
@@ -110,15 +114,21 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
             case WIFI_EVENT_STA_START:
             {
                 ESP_LOGI(TAG, "Event: WIFI_EVENT_STA_START");
-                // ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&is_provisioned));
-                // if (!is_provisioned)
-                // {
-                //     provisioningTask();
-                // }
-                // else
-                // {
-                //     wifiConnSTA();
-                // }
+                if (!is_provisioned && WIFI_PROVISIONING != wifi_state)
+                {
+                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+                }
+                else if (is_provisioned && WIFI_PROVISIONING != wifi_state)
+                {
+                    ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+                    sendQueue(WIFI_CONNECT, wifi_prov_queue, __func__);
+                }
+                break;
+            }
+            case WIFI_EVENT_STA_CONNECTED:
+            {
+                ESP_LOGI(TAG, "Event: WIFI_EVENT_STA_CONNECTED");
+                wifi_state = WIFI_CONNECTED;
                 break;
             }
             case WIFI_EVENT_STA_DISCONNECTED:
@@ -126,31 +136,14 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_EVENT);
                 ESP_LOGI(TAG, "Event: WIFI_EVENT_STA_DISCONNECTED");
 
-                uint8_t option;
-                if (!is_provisioned)
+                if (!is_provisioned && (WIFI_PROVISIONING != wifi_state))
                 {
-                    option = WIFI_PROVISION;
-                    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-                    {
-                        ESP_LOGW(TAG, "Failed to write WIFI_PROVISION in Queue");
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Calling WIFI_PROVISION from %s", __func__);
-                    }
+                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
                 }
-                else
+                else if (WIFI_CONNECTED == wifi_state)
                 {
-                    option = WIFI_CONNECT;
                     ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
-                    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-                    {
-                        ESP_LOGW(TAG, "Failed to write WIFI_CONNECT in Queue");
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Calling WIFI_CONNECT from %s", __func__);
-                    }
+                    sendQueue(WIFI_CONNECT, wifi_prov_queue, __func__);
                 }
                 break;
             }
@@ -172,6 +165,7 @@ void DeviceProvisioning::wifiInitSTA(void)
 
 void DeviceProvisioning::wifiConnSTA(void)
 {
+    wifi_state = WIFI_DISCONNECTED;
     esp_err_t err;
     wifi_ap_record_t ap_info;
     uint8_t retry_count = CONFIG_PROV_MGR_MAX_RETRY_CNT;
@@ -191,18 +185,9 @@ void DeviceProvisioning::wifiConnSTA(void)
     }
     else
     {
-        ESP_LOGE(TAG, "Re-Connecting Timed out, Activating AP Provisioning mode.");
+        ESP_LOGE(TAG, "Re-Connection Timed out, Activating AP Provisioning mode.");
         is_provisioned = false;
-        /* Enable provisioning here */
-        uint8_t option = WIFI_PROVISION;
-        if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-        {
-            ESP_LOGW(TAG, "Failed to write WIFI_PROVISION in Queue");
-        }
-        else
-        {
-            ESP_LOGW(TAG, "Calling WIFI_PROVISION from %s", __func__);
-        }
+        sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
     }
 }
 
@@ -334,6 +319,27 @@ esp_err_t DeviceProvisioning::domainNameDataHandler(uint32_t session_id, const u
     #endif
 }
 
+#define to_string(x) #x
+
+wifi_opt_with_str wifi_enum_str[WIFI_ENUM_MAX] = {
+    {.wifi_enums = WIFI_PROVISION, .str = to_string(WIFI_PROVISION)},
+    {.wifi_enums = WIFI_CHECK_PROVISION, .str = to_string(WIFI_CHECK_PROVISION)},
+    {.wifi_enums = WIFI_CONNECT, .str = to_string(WIFI_CONNECT)}
+};
+
+void DeviceProvisioning::sendQueue(uint8_t option, QueueHandle_t queue_to_push, const char *calling_func)
+{
+    ESP_LOGI(TAG, "%s: Writing %s to queue from %s.", __func__, wifi_enum_str[option].str, calling_func);
+    if(pdPASS != xQueueSend(queue_to_push, ( void * ) &option, ( TickType_t ) 10 ))
+    {
+        ESP_LOGW(TAG, "Failed to write %s in Queue", wifi_enum_str[option].str);
+    }
+    else
+    {
+        ESP_LOGI(TAG, "%s written to queue", wifi_enum_str[option].str);
+    }
+}
+
 void DeviceProvisioning::start(void)
 {
     /* Initialize TCP/IP */
@@ -358,16 +364,8 @@ void DeviceProvisioning::start(void)
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
 
-    wifi_prov_state = xQueueCreate(1, sizeof(uint8_t));
-    uint8_t option = WIFI_CHECK_PROVISION;
-    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-    {
-        ESP_LOGW(TAG, "Failed to write WIFI_CHECK_PROVISION in Queue");
-    }
-    else
-    {
-        ESP_LOGW(TAG, "Calling WIFI_CHECK_PROVISION from %s", __func__);
-    }
+    wifi_prov_queue = xQueueCreate(1, sizeof(uint8_t));
+    sendQueue(WIFI_CHECK_PROVISION, wifi_prov_queue, __func__);
 
     BaseType_t xReturned = xTaskCreate(provisioningTask, 
                                         "WIFI_PROVISIONING_MONITOR", 
@@ -378,71 +376,6 @@ void DeviceProvisioning::start(void)
         // vTaskDelete( xHandle );
         ESP_LOGI(TAG, "provisioningTask was created successfully.");
     }
-
-
-    /* Configuration for the provisioning manager */
-//     wifi_prov_mgr_config_t config = 
-//     {
-// #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
-//         .scheme = wifi_prov_scheme_softap,
-//         .scheme_event_handler = WIFI_PROV_EVENT_HANDLER_NONE
-// #endif /* CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP */
-//     };
-
-    /* Initialize provisioning manager with the
-     * configuration parameters set above */
-    // ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
-
-    // bool provisioned = false;
-// #ifdef CONFIG_EXAMPLE_RESET_PROVISIONED
-//     if(Device::getDomainName().empty())
-//     {
-//       ESP_LOGE(TAG, "Domain-name is empty: Falling back to provisioning sequence");
-//       reset();
-//     }
-// #endif
-//     /* Let's find out if the device is provisioned */
-//     ESP_ERROR_CHECK(wifi_prov_mgr_is_provisioned(&is_provisioned));
-
-//     /* If device is not yet provisioned start provisioning service */
-    // if (!provisioned)
-    // {
-    //     wifi_prov_mgr_endpoint_create("domain-name");
-    //     ESP_LOGI(TAG, "Starting provisioning in start() function.");
-
-    //     char service_name[20];
-    //     getDeviceServiceName(service_name, sizeof(service_name));
-
-    //     wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
-    //     const char *pop = "abcd1234";
-    //     const char *service_key = NULL;
-
-    //     /* Start provisioning service */
-    //     ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
-    //     ESP_LOGW(TAG, "Waiting for wifi connection.");
-    //     wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
-    //     xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
-    //     ESP_LOGW(TAG, "Moved on.");
-    // }
-//     else
-//     {
-//         ESP_LOGI(TAG, "Already provisioned, starting Wi-Fi STA");
-
-//         /* We don't need the manager as the device is already provisioned,
-//          * so let's release its resources */
-//         wifi_prov_mgr_deinit();
-
-//         /* Start Wi-Fi station */
-        // ESP_ERROR_CHECK(esp_wifi_start());
-        // wifiInitSTA();
-//     }
-        // provisioningTask();
-
-//     /* Wait for Wi-Fi connection */
-//     ESP_LOGW(TAG, "Waiting for wifi connection.");
-//     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
-//     ESP_LOGW(TAG, "Moved on.");
-
 }
 
 void DeviceProvisioning::provMgrStart(void)
@@ -459,38 +392,39 @@ void DeviceProvisioning::provMgrStart(void)
     /* Initialize provisioning manager with the
     * configuration parameters set above */
     ESP_ERROR_CHECK(wifi_prov_mgr_init(config));
+    ESP_LOGI(TAG, "%s: WiFi provision manager initialized.", __func__);
 }
 
 void DeviceProvisioning::provisioningTask(void *pvParameters)
 {
     ESP_LOGI(TAG, "provisioningTask Started.");
     uint8_t buf;
-    uint8_t option;
 
     while(1)
     {
-        xQueueReceive(wifi_prov_state, &buf, portMAX_DELAY);
+        xQueueReceive(wifi_prov_queue, &buf, portMAX_DELAY);
+        ESP_LOGI(TAG, "%s: Running switch cases.", __func__);
         switch (buf)
         {
-            ESP_LOGI(TAG, "%s: Running switch cases.", __func__);
             case WIFI_PROVISION:
             {
-                if(ESP_ERR_INVALID_STATE == wifi_prov_mgr_is_provisioned(&is_provisioned))
+                ESP_LOGW(TAG, "%s: case WIFI_PROVISION.", __func__);
+                esp_err_t err = wifi_prov_mgr_is_provisioned(&is_provisioned);
+                if(ESP_ERR_INVALID_STATE == err)
                 {
                     provMgrStart();
-                    option = WIFI_PROVISION;
-                    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-                    {
-                        ESP_LOGW(TAG, "Failed to write WIFI_PROVISION in Queue");
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Calling WIFI_PROVISION from %s", __func__);
-                    }
+                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
                 }
-                else if(!is_provisioned)
+                else if(!is_provisioned || (WIFI_DISCONNECTED == wifi_state))
                 {
-                    ESP_LOGI(TAG, "Starting provisioning");
+                    ESP_LOGI(TAG, "Starting provisioning manager");
+                    wifi_state = WIFI_PROVISIONING;
+
+                    esp_wifi_stop();
+                    esp_wifi_deinit();
+                    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+                    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+                    
                     wifi_prov_mgr_endpoint_create("domain-name");
 
                     char service_name[20];
@@ -501,6 +435,8 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
                     const char *service_key = NULL;
 
                     /* Start provisioning service */
+                    // esp_err_t err_prov = wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key);
+                    // ESP_LOGE(TAG, "error no. %d occured when starting provision manager", err_prov);
                     ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
                     wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
                     xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
@@ -510,35 +446,27 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
             }
             case WIFI_CHECK_PROVISION:
             {
-                if(ESP_ERR_INVALID_STATE == wifi_prov_mgr_is_provisioned(&is_provisioned))
+                ESP_LOGW(TAG, "%s: case WIFI_CHECK_PROVISION.", __func__);
+                esp_err_t prv_err = wifi_prov_mgr_is_provisioned(&is_provisioned);
+                if(ESP_ERR_INVALID_STATE == prv_err)
                 {
                     provMgrStart();
-                    option = WIFI_CHECK_PROVISION;
-                    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-                    {
-                        ESP_LOGW(TAG, "Failed to write WIFI_CHECK_PROVISION in Queue");
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Calling WIFI_CHECK_PROVISION from %s", __func__);
-                    }
+                    sendQueue(WIFI_CHECK_PROVISION, wifi_prov_queue, __func__);
                 }
                 else if (!is_provisioned)
                 {
-                    option = WIFI_PROVISION;
-                    if(pdPASS != xQueueSend(wifi_prov_state, ( void * ) &option, ( TickType_t ) 10 ))
-                    {
-                        ESP_LOGW(TAG, "Failed to write WIFI_PROVISION in Queue");
-                    }
-                    else
-                    {
-                        ESP_LOGW(TAG, "Calling WIFI_PROVISION from %s", __func__);
-                    }
+                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+                }
+                else if(is_provisioned)
+                {
+                    ESP_LOGI(TAG, "%s: Starting WiFi.", __func__);
+                    wifiInitSTA();
                 }
                 break;
             }
             case WIFI_CONNECT:
             {
+                ESP_LOGW(TAG, "%s: case WIFI_CONNECT.", __func__);
                 wifiConnSTA();
                 break;
             }

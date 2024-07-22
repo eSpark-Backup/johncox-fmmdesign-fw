@@ -1,4 +1,6 @@
 #pragma once
+#ifndef DEV_PROV_HPP
+#define DEV_PROV_HPP
 #include <stdio.h>
 #include <string.h>
 
@@ -23,10 +25,25 @@
 
 typedef enum
 {
-    WIFI_PROVISION = 1,
+    WIFI_PROVISIONING = 1,
+    WIFI_CONNECTED,
+    WIFI_DISCONNECTED,
+    WIFI_DEFAULT
+}wifi_state_e;
+
+typedef enum
+{
+    WIFI_PROVISION = 0,
     WIFI_CHECK_PROVISION,
-    WIFI_CONNECT
+    WIFI_CONNECT,
+    WIFI_ENUM_MAX
 }wifi_operation_e;
+
+typedef struct {
+    wifi_operation_e wifi_enums;
+    const char* str;
+}wifi_opt_with_str;
+
 
 class DeviceProvisioning
 {
@@ -42,8 +59,10 @@ class DeviceProvisioning
         static void wifiInitSTA(void);
         static void wifiConnSTA(void);
         static void provMgrStart(void);
+        static void sendQueue(uint8_t option, QueueHandle_t queue_to_push, const char * calling_func);
         static void getDeviceServiceName(char *service_name, size_t max);
         static esp_err_t domainNameDataHandler(uint32_t session_id, const uint8_t *inbuf, ssize_t inlen,
                                        uint8_t **outbuf, ssize_t *outlen, void *priv_data);
     
 };
+#endif //DEV_PROV_HPP

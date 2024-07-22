@@ -54,6 +54,7 @@ void HttpServer::start(char* (*dataCallback)(void))
     wss_keep_alive_t keep_alive = wss_keep_alive_start(&keep_alive_config);
 
     httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
+    config.httpd.ctrl_port = 55555;
     config.httpd.max_uri_handlers = 15;
     config.httpd.max_open_sockets = 6;
     config.httpd.max_open_sockets = max_clients;
