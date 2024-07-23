@@ -1,6 +1,7 @@
 idf_component_register(SRCS	"HttpServer.cpp" "HttpRequestsHandlers.cpp"
 						INCLUDE_DIRS "."
-                        REQUIRES
+                        REQUIRES 
+                            DeviceProvisioning
                             nvs_flash
                             esp_http_client
                             esp_https_server

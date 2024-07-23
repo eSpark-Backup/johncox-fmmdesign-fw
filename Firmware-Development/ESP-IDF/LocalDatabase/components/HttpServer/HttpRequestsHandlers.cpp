@@ -1,4 +1,5 @@
 #include "HttpRequestsHandlers.hpp"
+#include "DeviceProvisioning.hpp"
 #include "LocalDB.hpp"
 #include "UserManager.hpp"
 #include "JCErrors.h"
@@ -449,5 +450,19 @@ esp_err_t updatePassword(httpd_req_t *req)
     // Send response
     httpd_resp_send(req, response, strlen(response));
 
+    return ESP_OK;
+}
+
+esp_err_t startProvision(httpd_req_t *req) 
+{
+    ESP_LOGI(TAG, "Provisioning request received.");
+    httpd_resp_send(req, "Provisioning request received.", HTTPD_RESP_USE_STRLEN);
+    if(ESP_OK != DeviceProvisioning::reset())
+    {
+        httpd_resp_send(req, "Device already in provisioning state.", HTTPD_RESP_USE_STRLEN);
+    }
+    else{
+        httpd_resp_send(req, "Started provisioning", HTTPD_RESP_USE_STRLEN);
+    }
     return ESP_OK;
 }

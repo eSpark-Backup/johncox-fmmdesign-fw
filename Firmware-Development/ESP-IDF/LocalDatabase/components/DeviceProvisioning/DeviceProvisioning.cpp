@@ -13,15 +13,12 @@ static bool is_provisioned = false;
 static wifi_state_e wifi_state = WIFI_DEFAULT;
 
 static QueueHandle_t wifi_prov_queue = NULL;
-// void provisioningTask(void *pvParameters);
+static wifi_config_t wifi_backup_cfg;
 
 /* Event handler for catching system events */
 void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
 {
-#ifdef CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE
-    static int retries;
-#endif
     if (event_base == WIFI_PROV_EVENT)
     {
         switch (event_id)
@@ -32,12 +29,12 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
             case WIFI_PROV_CRED_RECV:
             {
                 wifi_sta_config_t *wifi_sta_cfg = (wifi_sta_config_t *)event_data;
-                wifi_sta_cfg->failure_retry_cnt = CONFIG_PROV_MGR_MAX_RETRY_CNT-1;
+                wifi_sta_cfg->failure_retry_cnt = CONFIG_PROV_MGR_MAX_RETRY_CNT;
                 ESP_LOGI(TAG, "Received Wi-Fi credentials"
                             "\n\tSSID         : %s\n\tPassword     : %s\n\tRetry Count  : %d",
                         (const char *)wifi_sta_cfg->ssid,
                         (const char *)wifi_sta_cfg->password,
-                        wifi_sta_cfg->failure_retry_cnt+1
+                        wifi_sta_cfg->failure_retry_cnt
                         );
 
                 wifi_config_t confg
@@ -52,29 +49,29 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 wifi_prov_sta_fail_reason_t *reason = (wifi_prov_sta_fail_reason_t *)event_data;
                 ESP_LOGE(TAG, "Provisioning failed!\n\tReason : %s",
                         (*reason == WIFI_PROV_STA_AUTH_ERROR) ? "Wi-Fi station authentication failed." : "Wi-Fi access-point not found.");
-                ESP_LOGW(TAG, "Please retry provisioning.");
-#ifdef CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE
-                retries++;
-                if (retries >= CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT)
+                
+                if(!is_provisioned)
                 {
-                    ESP_LOGI(TAG, "Failed to connect with provisioned AP, reseting provisioned credentials");
+                    ESP_LOGW(TAG, "Please retry provisioning.");
                     wifi_prov_mgr_reset_sm_state_on_failure();
-                    retries = 0;
                 }
-#endif
-                wifi_prov_mgr_reset_sm_state_on_failure();
+                else if (is_provisioned)
+                {
+                    wifi_prov_mgr_deinit();
+                    xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
+                    setWiFiCredentials();
+                    ESP_LOGW(TAG, "Fetching wifi credentials from NVS and attempting connection to AP.");
+                    sendQueue(WIFI_CHECK_PROVISION, wifi_prov_queue, __func__);
+                }
                 break;
             }
-
             case WIFI_PROV_CRED_SUCCESS:
                 ESP_LOGI(TAG, "Provisioning successful");
-#ifdef CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE
-                retries = 0;
-#endif
                 break;
             case WIFI_PROV_END:
             {
                 /* De-initialize manager once provisioning is finished */
+                ESP_LOGI(TAG, "Event: WIFI_PROV_END");
                 wifi_prov_mgr_deinit();
                 xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
                 wifi_state = WIFI_CONNECTED;
@@ -96,6 +93,13 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 wifi_state = WIFI_CONNECTED;
                 ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
                 ESP_LOGI(TAG, "Connected with IP Address:" IPSTR, IP2STR(&event->ip_info.ip));
+                
+                // Change wifi connection failure count back to 0
+                wifi_config_t confg;
+                esp_wifi_get_config(WIFI_IF_STA, &confg);
+                confg.sta.failure_retry_cnt = 0;
+                ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &confg));
+                
                 /* Signal main application to continue execution */
                 xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
                 break;
@@ -118,9 +122,9 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 {
                     sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
                 }
-                else if (is_provisioned && WIFI_PROVISIONING != wifi_state)
+                else if (is_provisioned && WIFI_DISCONNECTED == wifi_state)
                 {
-                    ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+                    ESP_LOGI(TAG, "Disconnected. Connecting to the AP.");
                     sendQueue(WIFI_CONNECT, wifi_prov_queue, __func__);
                 }
                 break;
@@ -142,9 +146,10 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 }
                 else if (WIFI_CONNECTED == wifi_state)
                 {
-                    ESP_LOGI(TAG, "Disconnected. Connecting to the AP again...");
+                    ESP_LOGI(TAG, "Disconnected. Connecting to the AP.");
                     sendQueue(WIFI_CONNECT, wifi_prov_queue, __func__);
                 }
+                wifi_state = WIFI_DISCONNECTED;
                 break;
             }
             default:
@@ -159,34 +164,37 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
 void DeviceProvisioning::wifiInitSTA(void)
 {
     /* Start Wi-Fi in station mode */
+    esp_wifi_stop();        // stop the wifi if its running
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 void DeviceProvisioning::wifiConnSTA(void)
 {
-    wifi_state = WIFI_DISCONNECTED;
+    // wifi_state = WIFI_DISCONNECTED;
     esp_err_t err;
     wifi_ap_record_t ap_info;
     uint8_t retry_count = CONFIG_PROV_MGR_MAX_RETRY_CNT;
     do
     {
+        // ESP_LOGI(TAG, "Attempting connection with wifi.");
         esp_wifi_connect();
         err = esp_wifi_sta_get_ap_info(&ap_info);
         // ESP_LOGW(TAG, "error %d", err);
         retry_count--;
-        vTaskDelay(1500/portTICK_RATE_MS);
+        vTaskDelay(CONFIG_PROV_MGR_MAX_RETRY_CNT_DELAY/portTICK_RATE_MS);
     } while (retry_count && ESP_OK != err);
     // } while (ESP_OK != err);
 
     if(ESP_OK == err)
     {
         ESP_LOGI(TAG, "Connected to wifi.");
+        wifi_state = WIFI_CONNECTED;
     }
     else
     {
         ESP_LOGE(TAG, "Re-Connection Timed out, Activating AP Provisioning mode.");
-        is_provisioned = false;
+        wifi_state = WIFI_PROVISIONING;
         sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
     }
 }
@@ -406,44 +414,6 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
         ESP_LOGI(TAG, "%s: Running switch cases.", __func__);
         switch (buf)
         {
-            case WIFI_PROVISION:
-            {
-                ESP_LOGW(TAG, "%s: case WIFI_PROVISION.", __func__);
-                esp_err_t err = wifi_prov_mgr_is_provisioned(&is_provisioned);
-                if(ESP_ERR_INVALID_STATE == err)
-                {
-                    provMgrStart();
-                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
-                }
-                else if(!is_provisioned || (WIFI_DISCONNECTED == wifi_state))
-                {
-                    ESP_LOGI(TAG, "Starting provisioning manager");
-                    wifi_state = WIFI_PROVISIONING;
-
-                    esp_wifi_stop();
-                    esp_wifi_deinit();
-                    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-                    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-                    
-                    wifi_prov_mgr_endpoint_create("domain-name");
-
-                    char service_name[20];
-                    getDeviceServiceName(service_name, sizeof(service_name));
-
-                    wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
-                    const char *pop = "abcd1234";
-                    const char *service_key = NULL;
-
-                    /* Start provisioning service */
-                    // esp_err_t err_prov = wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key);
-                    // ESP_LOGE(TAG, "error no. %d occured when starting provision manager", err_prov);
-                    ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
-                    wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
-                    xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
-                    is_provisioned = true;
-                }
-                break;
-            }
             case WIFI_CHECK_PROVISION:
             {
                 ESP_LOGW(TAG, "%s: case WIFI_CHECK_PROVISION.", __func__);
@@ -459,8 +429,51 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
                 }
                 else if(is_provisioned)
                 {
-                    ESP_LOGI(TAG, "%s: Starting WiFi.", __func__);
+                    ESP_LOGI(TAG, "%s: WiFi is provisioned. Starting WiFi.", __func__);
+                    wifi_state = WIFI_DISCONNECTED;
                     wifiInitSTA();
+                }
+                break;
+            }
+            case WIFI_PROVISION:
+            {
+                ESP_LOGW(TAG, "%s: case WIFI_PROVISION.", __func__);
+                // esp_err_t err = wifi_prov_mgr_is_provisioned(&is_provisioned);
+                // ESP_LOGE(TAG, "%s error occured",esp_err_to_name(err));
+                // if(ESP_ERR_INVALID_STATE == err)
+                // {
+                //     provMgrStart();
+                //     sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+                // }
+                if(!is_provisioned || (WIFI_CONNECTED != wifi_state))
+                {
+                    ESP_LOGI(TAG, "Starting provisioning manager");
+                    saveWiFiCredentials();
+                    wifi_state = WIFI_PROVISIONING;
+                    
+                    wifi_prov_mgr_endpoint_create("domain-name");
+
+                    char service_name[20];
+                    getDeviceServiceName(service_name, sizeof(service_name));
+
+                    wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
+                    const char *pop = "abcd1234";
+                    const char *service_key = NULL;
+
+                    /* Start provisioning service */
+                    esp_err_t err_prov = wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key);
+                    // ESP_LOGE(TAG, "error no. %d occured when starting provision manager", err_prov);
+                    if(ESP_ERR_INVALID_STATE == err_prov)
+                    {
+                        wifi_state = WIFI_DISCONNECTED;
+                        sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+                        provMgrStart();
+                        break;
+                    }
+                    // ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
+                    wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
+                    xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
+                    is_provisioned = true;
                 }
                 break;
             }
@@ -476,7 +489,33 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
     }
 }
 
-void DeviceProvisioning::reset()
+esp_err_t DeviceProvisioning::reset(void)
 {
-    wifi_prov_mgr_reset_provisioning();
+    if(WIFI_PROVISIONING == wifi_state)
+    {
+        // if its already in prov state than how can it communicate with the app???
+        ESP_LOGW(TAG, "Device already in provisioning state.");
+        return ESP_FAIL;
+    }
+    else
+    {
+        wifi_state = WIFI_DISCONNECTED;
+        sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+        return ESP_OK;
+    }
+    // wifi_prov_mgr_reset_provisioning();
+}
+
+void DeviceProvisioning::setWiFiCredentials(void)
+{
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_backup_cfg);
+}
+
+void DeviceProvisioning::saveWiFiCredentials(void)
+{
+    if (esp_wifi_get_config(WIFI_IF_STA, &wifi_backup_cfg) != ESP_OK)
+    {
+       ESP_LOGE(TAG, "Error encountered while saving WiFi credentials.");
+    }
+    wifi_backup_cfg.sta.failure_retry_cnt = 0;
 }
