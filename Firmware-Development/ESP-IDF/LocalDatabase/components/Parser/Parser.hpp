@@ -12,6 +12,10 @@ namespace Parser
     bool hasKey(const std::map<std::string, std::string>& parameters, const std::string& key);
     char* convertMapToJSON(const std::map<std::string, std::vector<std::map<std::string, std::string>>>& jsonData,
                                  const std::map<std::string, std::string>& additionalParams = {});
+    char* convertMapToJSON(const std::map<std::string, std::vector<std::map<std::string, std::string>>>& engineData,
+                            const std::map<std::string, std::vector<std::map<std::string, std::string>>>& jsonData,
+                            std::vector<std::string> enabledEngineIds,
+                                const std::map<std::string, std::string>& additionalParams = {});
 }
 
 #endif /* PARSER_H */

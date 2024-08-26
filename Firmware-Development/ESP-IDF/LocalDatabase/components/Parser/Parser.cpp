@@ -123,4 +123,91 @@ namespace Parser {
         return jsonString;
     }
 
+    char* convertMapToJSON(const std::map<std::string, std::vector<std::map<std::string, std::string>>>& engineData,
+                            const std::map<std::string, std::vector<std::map<std::string, std::string>>>& jsonData,
+                            std::vector<std::string> enabledEngineIds,
+                                 const std::map<std::string, std::string>& additionalParams)
+    {
+        cJSON *root = cJSON_CreateObject(); // Create JSON root object
+
+        // Add additional parameters to the root object if provided
+        for (const auto& [key, value] : additionalParams) 
+        {
+            cJSON_AddStringToObject(root, key.c_str(), value.c_str());
+        }
+        
+        cJSON *dataObject = cJSON_CreateObject(); // Create JSON object for data
+
+        // Iterate over each key-value pair in the map
+        for (auto const& [tableName, data] : engineData) 
+        {
+            cJSON *dataArray = cJSON_CreateArray(); // Create JSON array for table data
+
+            // Iterate over each data item in the table
+            int counter = 0;
+            for (const auto& item : data) 
+            {
+                cJSON *itemObject = cJSON_CreateObject(); // Create JSON object for each data item
+                
+                // Add key-value pairs to the item object
+                for (const auto& [key, value] : item) 
+                {
+                    cJSON_AddStringToObject(itemObject, key.c_str(), value.c_str());
+                }
+
+                if (enabledEngineIds.size() < 2)
+                {
+                    for (auto const& [tableNameNested, dataNested] : jsonData) 
+                    {
+                        cJSON *itemObjectNested = cJSON_CreateObject(); // Create JSON object for each data item
+                        int enableNumber = std::stoi(enabledEngineIds[0]);
+                        if(enableNumber == (counter+1))
+                        {
+                            // Add key-value pairs to the item object
+                            for (const auto& [key, value] : dataNested[0]) 
+                            {
+                                cJSON_AddStringToObject(itemObjectNested, key.c_str(), value.c_str());
+                            }
+                        }
+                        cJSON_AddItemToObject(itemObject, tableNameNested.c_str(), itemObjectNested);
+                    } 
+                }
+                else 
+                {
+                    for (auto const& [tableNameNested, dataNested] : jsonData) 
+                    {
+                        cJSON *itemObjectNested = cJSON_CreateObject(); // Create JSON object for each data item
+                        // Add key-value pairs to the item object
+                        for (const auto& [key, value] : dataNested[counter]) 
+                        {
+                            cJSON_AddStringToObject(itemObjectNested, key.c_str(), value.c_str());
+                        }
+                        // ESP_LOGE("", "Counter %d -------------", counter);
+                        cJSON_AddItemToObject(itemObject, tableNameNested.c_str(), itemObjectNested);
+                    }
+                }
+
+                // Add the item object to the data array
+                cJSON_AddItemToArray(dataArray, itemObject);
+                counter++;
+            }
+            
+
+            // Add the data array to the data object with the table name as the key
+            cJSON_AddItemToObject(dataObject, tableName.c_str(), dataArray);
+        }
+
+        // Add the data object to the root object with the "data" key
+        cJSON_AddItemToObject(root, "data", dataObject);
+
+        // Convert cJSON root object to JSON string
+        char *jsonString = cJSON_Print(root);
+
+        // Clean up cJSON resources
+        cJSON_Delete(root);
+
+        // Return JSON string
+        return jsonString;
+    }
+
 }

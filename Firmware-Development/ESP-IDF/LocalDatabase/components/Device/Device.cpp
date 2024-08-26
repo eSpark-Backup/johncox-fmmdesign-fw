@@ -66,7 +66,7 @@ std::pair<std::string, std::string> Device::getCredentials()
 
 char* Device::getData() {
     // Map to hold the search results
-    std::map<std::string, std::vector<std::map<std::string, std::string>>> jsonData;
+    std::map<std::string, std::vector<std::map<std::string, std::string>>> engineData;
     
     // Retrieve data from Engines table to get all ids
     LocalDB& db = LocalDB::getInstance();
@@ -92,16 +92,14 @@ char* Device::getData() {
         return combinedData;
     };
 
-    // Combine data for SensorData and add it to jsonData
-    jsonData["SensorData"] = fetchAndCombineData("SensorData");
+    std::map<std::string, std::vector<std::map<std::string, std::string>>> sensorsData;
+    sensorsData["SensorData"] = fetchAndCombineData("SensorData");
+    sensorsData["FuelManagement"] = fetchAndCombineData("FuelManagement");
 
-    // Combine data for FuelManagement and add it to jsonData
-    jsonData["FuelManagement"] = fetchAndCombineData("FuelManagement");
-
-    jsonData["Engines"] = enginesData;
+    engineData["Engines"] = enginesData;
 
     // Convert jsonData to JSON
-    char* jsonResult = Parser::convertMapToJSON(jsonData);
+    char* jsonResult = Parser::convertMapToJSON(engineData, sensorsData, enabledEngineIds);
     
     return jsonResult;
 }

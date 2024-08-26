@@ -384,6 +384,8 @@ void DeviceProvisioning::start(void)
         // vTaskDelete( xHandle );
         ESP_LOGI(TAG, "provisioningTask was created successfully.");
     }
+
+    xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
 }
 
 void DeviceProvisioning::provMgrStart(void)
