@@ -172,21 +172,81 @@ void Device::insertRandomValues(LocalDB& db) {
         };
         db.insert("FuelManagement", fuelManagement);
     }
+    static bool flag = false;
+    if(!flag) {
+        for (int i = 1; i <= 2; ++i) 
+        {
+            // Insert data into Engines table
+            std::map<std::string, std::string> enginesData = {
+                {"id", std::to_string(i)},
+                {"name", "Engine M" + std::to_string(i)},
+                {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
+                {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
+                {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
+                {"enabled", std::to_string(i % 2)},
+                {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
+            };
+            db.insert("Engines", enginesData);
+
+        }
+        flag = true;
+    }
+}
+// Function to insert random values into tables
+void Device::insertHardCodeValues(LocalDB& db) {
+    // Get current timestamp
+    // std::time_t currentTime = std::time(nullptr);
+    // Get current time in microseconds to use as a seed
+    uint64_t seed = esp_timer_get_time();
+    static float fuel_burned = 0.1;
+    // static float fuel_left = 0.0;
+
+    // Initialize random number generator with the seed
+    std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
+    std::uniform_real_distribution<float> fuelDistribution(5.0, 20.0);
+    std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
+    std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
     for (int i = 1; i <= 2; ++i) 
     {
-        // Insert data into Engines table
-        std::map<std::string, std::string> enginesData = {
-            {"id", std::to_string(i)},
-            {"name", "Engine M" + std::to_string(i)},
-            {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
-            {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
-            {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
-            {"enabled", std::to_string(i % 2)},
-            {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
+        std::map<std::string, std::string> sensorData = {
+            {"engine_id", (i % 2 == 0) ? "1" : "2"},
+            {"timestamp_unix", std::to_string(seed)},
+            {"speed", std::to_string(speedDistribution(gen))},
+            {"fuel", std::to_string(fuelDistribution(gen))},
+            {"temperature_supply", std::to_string(temperatureDistribution(gen))},
+            {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };
-        db.insert("Engines", enginesData);
+        db.insert("SensorData", sensorData);
+        
+        // Insert random data into FuelManagement table
+        std::map<std::string, std::string> fuelManagement = {
+            {"engine_id", std::to_string(i)},
+            {"total_fuel_burned", std::to_string(i * (100 - fuel_burned))},
+            {"remaining_fuel", std::to_string(i * (50 - fuel_burned))},
+            {"distance_to_empty", std::to_string(i * (200 - (fuel_burned*2)))}
+        };
+        db.insert("FuelManagement", fuelManagement);
+    }
+    fuel_burned += 0.1;
+    static bool flag = false;
+    if(!flag) {
+        for (int i = 1; i <= 2; ++i) 
+        {
+            // Insert data into Engines table
+            std::map<std::string, std::string> enginesData = {
+                {"id", std::to_string(i)},
+                {"name", "Engine M" + std::to_string(i)},
+                {"engine_type", "Type " + std::to_string(i)}, // Replace with appropriate engine type
+                {"fuel_type", "Type " + std::to_string(i)},   // Replace with appropriate fuel type
+                {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
+                {"enabled", std::to_string(i % 2)},
+                {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
+            };
+            db.insert("Engines", enginesData);
 
+        }
+        flag = true;
     }
 }
 
@@ -204,7 +264,8 @@ void Device:: init()
     }
 
     createTables(db);
-    insertRandomValues(db);
+    // insertRandomValues(db);
+    insertHardCodeValues(db);
 
     // db.remove("SensorData");
 

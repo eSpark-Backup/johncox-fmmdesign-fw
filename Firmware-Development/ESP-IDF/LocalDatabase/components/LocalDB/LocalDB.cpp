@@ -65,7 +65,7 @@ void LocalDB::createTable(const char *tableName, const char *columns)
 int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, char**), void *callbackData) 
 {
     char *zErrMsg = nullptr;
-    ESP_LOGI(TAG, "%s", sql);
+    // ESP_LOGI(TAG, "%s", sql);
     int64_t start = esp_timer_get_time();
     int rc = sqlite3_exec(db, sql, callback, callbackData, &zErrMsg);
     if (rc != SQLITE_OK) 
@@ -75,9 +75,9 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
     } 
     else 
     {
-        ESP_LOGI(TAG, "Operation done successfully");
+        // ESP_LOGI(TAG, "Operation done successfully");
     }
-    ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
+    // ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
     return rc;
 }
 
@@ -228,6 +228,7 @@ static int searchCallback(void* data, int argc, char** argv, char** azColName)
     for (int i = 0; i < argc; i++) 
     {
         row[azColName[i]] = argv[i] ? argv[i] : "NULL";
+        // ESP_LOGE(TAG, "%s: %s", azColName[i], argv[i]);
     }
     static_cast<std::vector<std::map<std::string, std::string>>*>(data)->push_back(row);
     return 0;

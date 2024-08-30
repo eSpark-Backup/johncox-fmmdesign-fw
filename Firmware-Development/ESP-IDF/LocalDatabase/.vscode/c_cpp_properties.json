@@ -4,14 +4,15 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/Users/eSpark/esp/v4.4.6/esp-idf/**"
+                "C:/.toolchains/esp/v4.4.6/esp-idf/**",
+                "C:/.toolchains/esp/v5.2.1/esp-idf/**"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
-            "compilerPath": "C:\\qp\\qtools\\qtools\\mingw32\\bin\\gcc.exe",
+            "compilerPath": "C:/qp/qtools/qtools/mingw32/bin/g++.exe",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "windows-gcc-x86"

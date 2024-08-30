@@ -17,6 +17,8 @@
 #include <esp_https_server.h>
 #include "KeepAlive.hpp"
 #include "Websockets.hpp"
+#include "LocalDB.hpp"
+#include "Device.hpp"
 
 #if !CONFIG_HTTPD_WS_SUPPORT
 #error This example cannot be used unless HTTPD_WS_SUPPORT is enabled in esp-http-server component configuration
@@ -252,9 +254,22 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
 {
     bool send_messages = true;
 
+    // get database instance and update it every 5secs
+    static const char* filename = "/spiffs/test.db";
+    LocalDB& db = LocalDB::getInstance(filename);
+    static uint8_t loop_count = 1;
+
     // Send async message to all connected clients that use websocket protocol every 10 seconds
     while (send_messages) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        // update database once every 5secs
+        if(loop_count%5==0) {
+            Device::insertHardCodeValues(db);
+            loop_count = 1;
+        }
+        loop_count++;
+        // end update
 
         if (!*server) { // httpd might not have been created by now
             continue;
