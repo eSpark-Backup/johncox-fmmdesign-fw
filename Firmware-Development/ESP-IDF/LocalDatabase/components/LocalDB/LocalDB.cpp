@@ -2,6 +2,7 @@
 #include <utility>
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_spiffs.h"
 #include "LocalDB.hpp"
 
 static const char *TAG = "LocalDB";
@@ -67,10 +68,21 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
     char *zErrMsg = nullptr;
     // ESP_LOGI(TAG, "%s", sql);
     int64_t start = esp_timer_get_time();
+
     int rc = sqlite3_exec(db, sql, callback, callbackData, &zErrMsg);
     if (rc != SQLITE_OK) 
     {
         ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
+        size_t total = 0, used = 0;
+        esp_err_t ret = esp_spiffs_info(NULL, &total, &used);
+        if (ret != ESP_OK) 
+        {
+            ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+        } 
+        else 
+        {
+            ESP_LOGW(TAG, "Partition size: total: %d, used: %d", total, used);
+        }
         sqlite3_free(zErrMsg);
     } 
     else 
@@ -78,6 +90,7 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
         // ESP_LOGI(TAG, "Operation done successfully");
     }
     // ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
+
     return rc;
 }
 

@@ -50,7 +50,7 @@ esp_err_t ws_handler(httpd_req_t *req)
         ESP_LOGE(TAG, "httpd_ws_recv_frame failed to get frame len with %d", ret);
         return ret;
     }
-    ESP_LOGI(TAG, "frame len is %d", ws_pkt.len);
+    // ESP_LOGI(TAG, "frame len is %d", ws_pkt.len);
     if (ws_pkt.len) {
         /* ws_pkt.len + 1 is for NULL termination as we are expecting a string */
         buf = (uint8_t*)calloc(1, ws_pkt.len + 1);
@@ -254,18 +254,15 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
 {
     bool send_messages = true;
 
-    // get database instance and update it every 5secs
-    static const char* filename = "/spiffs/test.db";
-    LocalDB& db = LocalDB::getInstance(filename);
     static uint8_t loop_count = 1;
 
     // Send async message to all connected clients that use websocket protocol every 10 seconds
     while (send_messages) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-
+        
         // update database once every 5secs
         if(loop_count%5==0) {
-            Device::insertHardCodeValues(db);
+            Device::insertHardCodeValues();
             loop_count = 1;
         }
         loop_count++;
@@ -280,7 +277,7 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
             for (size_t i=0; i < clients; ++i) {
                 int sock = client_fds[i];
                 if (httpd_ws_get_fd_info(*server, sock) == HTTPD_WS_CLIENT_WEBSOCKET) {
-                    ESP_LOGI(TAG, "Active client (fd=%d) -> sending async message", sock);
+                    // ESP_LOGI(TAG, "Active client (fd=%d) -> sending async message", sock);
                     struct async_resp_arg *resp_arg = (struct async_resp_arg*)malloc(sizeof(struct async_resp_arg));
                     resp_arg->hd = *server;
                     resp_arg->fd = sock;

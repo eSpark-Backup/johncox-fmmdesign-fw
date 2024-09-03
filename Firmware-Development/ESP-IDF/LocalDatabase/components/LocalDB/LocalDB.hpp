@@ -8,7 +8,7 @@
 class LocalDB 
 {
 public:
-    static LocalDB& getInstance(const char *filename = "/spiffs/test.db");
+    static LocalDB& getInstance(const char *filename = "/spiffs/test");
     ~LocalDB();
 
     void init();

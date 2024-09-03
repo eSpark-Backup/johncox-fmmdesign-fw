@@ -55,14 +55,4 @@ extern "C" void app_main()
     userMan.createUser(credentials.first, credentials.second);
 
     HttpServer::start(Device::getData);
-
-    // static const char* filename = "/spiffs/test.db";
-    // LocalDB& db = LocalDB::getInstance(filename);
-
-    //   Device::insertHardCodeValues(db);
-    // while(1) {
-    //   vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //   const char* data = Device::getData();
-    //   ESP_LOGI(TAG, "database entry: %s", data);
-    // }
 }
