@@ -28,7 +28,7 @@ def update_engine_data(engine):
         engine['SensorData']['timestamp_unix'] = str(int(time.time()))  # Update timestamp to current time
 
 # JSON data packet template
-data_packet = {
+data_packet_template = {
     "data": {
         "Engines": [
             {
@@ -86,15 +86,32 @@ data_packet = {
 }
 
 # Set of connected clients
-connected_clients = set()
+connected_clients = {}
+connected_clients1 = {}
+
+# Function to create a deep copy of the data packet template for each client
+def create_new_packet():
+    return json.loads(json.dumps(data_packet_template))
 
 async def register(websocket):
-    connected_clients.add(websocket)
-    print(f"Client connected: {websocket.remote_address}")
+    # Create a unique data packet for the client
+    client_data_packet = create_new_packet()
+    connected_clients[websocket] = client_data_packet
+    print(f"timesp1.local Client connected: {websocket.remote_address}")
 
 async def unregister(websocket):
-    connected_clients.remove(websocket)
-    print(f"Client disconnected: {websocket.remote_address}")
+    connected_clients.pop(websocket, None)
+    print(f"timesp1.local Client disconnected: {websocket.remote_address}")
+
+async def register1(websocket):
+    # Create a unique data packet for the client
+    client_data_packet = create_new_packet()
+    connected_clients1[websocket] = client_data_packet
+    print(f"timesp2.local Client connected: {websocket.remote_address}")
+
+async def unregister1(websocket):
+    connected_clients1.pop(websocket, None)
+    print(f"timesp2.local Client disconnected: {websocket.remote_address}")
 
 async def send_data():
     update_interval = 5  # Update values every 5 seconds
@@ -104,20 +121,49 @@ async def send_data():
     while True:
         # Update engine data every 'update_interval' seconds
         if counter % update_interval == 0:
-            for engine in data_packet['data']['Engines']:
-                update_engine_data(engine)
-            print(f"Updated data packet at {time.strftime('%X')}")
+            for client, data_packet in connected_clients.items():
+                for engine in data_packet['data']['Engines']:
+                    update_engine_data(engine)
+            print(f"Updated data packet for all clients on timesp1.local domain at {time.strftime('%X')}")
 
-        # Convert the data packet to a JSON string
-        json_data = json.dumps(data_packet)
-
-        # Send the data packet to all connected clients
-        for client in connected_clients.copy():
+        # Send the updated data to all connected clients
+        for client, data_packet in connected_clients.copy().items():
             try:
+                # Convert the data packet to a JSON string
+                json_data = json.dumps(data_packet)
                 await client.send(json_data)
-                print(f"Sent data to {client.remote_address} at {time.strftime('%X')}: {json_data}")
+                print(f"Sent data to timesp1.local client {client.remote_address} at {time.strftime('%X')}.")
+                # print(f"Sent data to {client.remote_address} at {time.strftime('%X')}: {json_data}")
             except websockets.exceptions.ConnectionClosed:
                 await unregister(client)
+
+        # Wait for 1 second before sending the next packet
+        await asyncio.sleep(send_interval)
+        counter += send_interval
+
+async def send_data1():
+    update_interval = 5  # Update values every 5 seconds
+    send_interval = 1  # Send JSON packet every 1 second
+    counter = 0
+
+    while True:
+        # Update engine data every 'update_interval' seconds
+        if counter % update_interval == 0:
+            for client, data_packet in connected_clients1.items():
+                for engine in data_packet['data']['Engines']:
+                    update_engine_data(engine)
+            print(f"Updated data packet for all clients on timesp2.local domain at {time.strftime('%X')}")
+
+        # Send the updated data to all connected clients
+        for client, data_packet in connected_clients1.copy().items():
+            try:
+                # Convert the data packet to a JSON string
+                json_data = json.dumps(data_packet)
+                await client.send(json_data)
+                print(f"Sent data to timesp2.local client {client.remote_address} at {time.strftime('%X')}.")
+                # print(f"Sent data to {client.remote_address} at {time.strftime('%X')}: {json_data}")
+            except websockets.exceptions.ConnectionClosed:
+                await unregister1(client)
 
         # Wait for 1 second before sending the next packet
         await asyncio.sleep(send_interval)
@@ -131,25 +177,54 @@ async def handle_client(websocket, path):
     finally:
         await unregister(websocket)
 
+async def handle_client1(websocket, path):
+    await register1(websocket)
+    try:
+        # Keep the connection open to send periodic updates
+        await websocket.wait_closed()
+    finally:
+        await unregister1(websocket)
+
 # Function to advertise service using mDNS
 def start_mdns_service():
     zeroconf = Zeroconf()
+    zeroconf1 = Zeroconf()
     local_ip = socket.gethostbyname(socket.gethostname())  # Get the IP address of the current machine
-    service_info = ServiceInfo(
+    service_info0 = ServiceInfo(
         "_http._tcp.local.",
         "My WebSocket Server._http._tcp.local.",
         addresses=[socket.inet_aton(local_ip)],
-        port=8765,
+        port=80,  # Ensure that mDNS advertises the same port as the WebSocket server
         properties={},
         server="timesp1.local.",
     )
-    zeroconf.register_service(service_info)
-    print("mDNS service started at timesp1.local")
+    service_info1 = ServiceInfo(
+        "_http._tcp.local.",
+        "My WebSocket Server1._http._tcp.local.",
+        addresses=[socket.inet_aton(local_ip)],
+        port=81,  # Ensure that mDNS advertises the same port as the WebSocket server
+        properties={},
+        server="timesp2.local.",
+    )
+    zeroconf.register_service(service_info0)
+    print(f"mDNS service started at timesp1.local on {local_ip}")
+    zeroconf1.register_service(service_info1)
+    print(f"mDNS service started at timesp2.local on {local_ip}")
 
 async def main():
-    # Start the WebSocket server on the domain "timesp1" on port 443
-    async with websockets.serve(handle_client, "0.0.0.0", 80):
-        await send_data()
+    # Start the WebSocket server for timesp1.local on port 80
+    server1 = websockets.serve(handle_client, "0.0.0.0", 80)
+
+    # Start the WebSocket server for timesp2.local on port 81
+    server2 = websockets.serve(handle_client1, "0.0.0.0", 81)
+
+    # Start both servers concurrently
+    await asyncio.gather(
+        server1,
+        server2,
+        send_data(),
+        send_data1()
+    )
 
 if __name__ == "__main__":
     # Set the event loop policy for Windows compatibility
