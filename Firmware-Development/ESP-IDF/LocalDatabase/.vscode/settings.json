@@ -58,6 +58,7 @@
         "netfwd": "cpp",
         "optional": "cpp",
         "fstream": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "*.inc": "cpp"
     }
 }

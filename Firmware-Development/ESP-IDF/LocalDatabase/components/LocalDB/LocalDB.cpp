@@ -34,6 +34,8 @@ void LocalDB::init()
 
 bool LocalDB::open() 
 {
+    close();
+    int64_t start = esp_timer_get_time();
     int rc = sqlite3_open(filename, &db);
     if (rc) 
     {
@@ -42,7 +44,7 @@ bool LocalDB::open()
     } 
     else 
     {
-        ESP_LOGI(TAG, "Opened database successfully");
+        ESP_LOGI(TAG, "Opened database successfully in %lldms", (esp_timer_get_time() - start) / 1000);
         return true;
     }
 }
@@ -60,6 +62,7 @@ void LocalDB::createTable(const char *tableName, const char *columns)
 {
     char sql[512];
     snprintf(sql, sizeof(sql), "CREATE TABLE %s(%s);", tableName, columns);
+    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     executeSQL(sql);
 }
 
@@ -114,6 +117,8 @@ int LocalDB::insert(const char *tableName, std::map<std::string, std::string> da
     char sql[512];
     snprintf(sql, sizeof(sql), "INSERT INTO %s (%s) VALUES (%s);", tableName, columns.c_str(), values.c_str());
 
+    // ESP_LOGW(TAG, "executeSQL called from %s and returning to %s", __func__, __builtin_return_address(0));
+    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     // Execute the INSERT statement
     return executeSQL(sql, nullptr);
 }
@@ -164,6 +169,7 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
         sql += " ORDER BY id DESC LIMIT 1"; // Assuming 'id' is the primary key
     }
     
+    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
 
     executeSQL(sql.c_str(), searchCallback, &results);
 
@@ -182,6 +188,8 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
     {
         sql += condition;
     }
+
+    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
 
     return executeSQL(sql.c_str(), nullptr);
 }
@@ -208,6 +216,7 @@ int LocalDB::remove(const char* tableName, const std::map<std::string, std::stri
     if (where.empty())
     {
         sql = "DROP TABLE IF EXISTS " + std::string(tableName);
+        ESP_LOGW(TAG, "executeSQL called from %s", __func__);
         return executeSQL(sql.c_str(), nullptr);
     }
 
@@ -219,6 +228,7 @@ int LocalDB::remove(const char* tableName, const std::map<std::string, std::stri
         sql += condition;
     }
     
+    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     return executeSQL(sql.c_str(), nullptr);
 }
 

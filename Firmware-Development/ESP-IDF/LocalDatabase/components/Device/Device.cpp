@@ -85,11 +85,11 @@ char* Device::getData() {
     std::map<std::string, std::vector<std::map<std::string, std::string>>> engineData;
     
     // Retrieve data from Engines table to get all ids
-    LocalDB& db = LocalDB::getInstance();
-    std::vector<std::map<std::string, std::string>> enginesData = db.search("Engines", {"*"}, {});
+    // LocalDB& db = LocalDB::getInstance();
+    std::vector<std::map<std::string, std::string>> enginesData = dbPtr.search("Engines", {"*"}, {});
 
     std::vector<std::string> enabledEngineIds;
-    std::vector<std::map<std::string, std::string>> configurations = db.search("Engines", {"id"}, {{"enabled", "1"}});
+    std::vector<std::map<std::string, std::string>> configurations = dbPtr.search("Engines", {"id"}, {{"enabled", "1"}});
     for (auto& config : configurations) {
         enabledEngineIds.push_back(config["id"]);
     }
@@ -100,7 +100,7 @@ char* Device::getData() {
         for (auto& engineId : enabledEngineIds) {
 
             // Retrieve data from the table for this engine_id
-            std::vector<std::map<std::string, std::string>> tableData = db.search(tableName, {"*"}, {{"engine_id", engineId}}, true);
+            std::vector<std::map<std::string, std::string>> tableData = dbPtr.search(tableName, {"*"}, {{"engine_id", engineId}}, true);
 
             // Combine tableData into combinedData
             combinedData.insert(combinedData.end(), tableData.begin(), tableData.end());
@@ -159,7 +159,6 @@ void Device::createTables(LocalDB& db) {
 void Device::insertRandomValues(LocalDB& db) {
     // Get current timestamp
     uint64_t seed = esp_timer_get_time();
-    static float fuel_burned = 0.3;
 
     // Insert random data into SensorData table
     std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
@@ -199,7 +198,8 @@ void Device::insertRandomValues(LocalDB& db) {
                 {"engine_type", std::string(engineType[i-1])}, // Replace with appropriate engine type
                 {"fuel_type", std::string(engineFuelType[i*2])},   // Replace with appropriate fuel type
                 {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
-                {"enabled", std::to_string(i % 2)},
+                {"enabled", std::to_string(1)},
+                // {"enabled", std::to_string(i % 2)},
                 {"position", std::string(enginePosition[i*2])} // Replace with appropriate volume per cycle
                 // {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
             };
@@ -221,7 +221,9 @@ void Device::insertHardCodeValues() {
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
-    for (int i = 1; i <= 2; ++i) 
+    ESP_LOGW(TAG, "================");
+    for (int i = 1; i <= 2; i++) 
+    // for (int i = 1; i <= 2; ++i) 
     {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
@@ -231,6 +233,11 @@ void Device::insertHardCodeValues() {
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };
+        // ESP_LOGW(TAG, "SensorData: %s", sensorData.c_str());
+        printf("sensorData:\n");
+        for (const auto& pair : sensorData) {
+            printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        }
         dbPtr.insert("SensorData", sensorData);
         
         // Insert random data into FuelManagement table
@@ -240,6 +247,11 @@ void Device::insertHardCodeValues() {
             {"remaining_fuel", std::to_string(i * (500 - fuel_burned))},
             {"distance_to_empty", std::to_string(i * (200 - (fuel_burned/2)))}
         };
+        // ESP_LOGW(TAG, "FuelManagement: %s", fuelManagement.c_str());
+        printf("fuelManagement:\n");
+        for (const auto& pair : fuelManagement) {
+            printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        }
         dbPtr.insert("FuelManagement", fuelManagement);
     }
     fuel_burned += 1.4;
