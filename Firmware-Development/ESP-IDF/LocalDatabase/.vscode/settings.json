@@ -59,6 +59,7 @@
         "optional": "cpp",
         "fstream": "cpp",
         "*.ipp": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "errno.h": "c"
     }
 }

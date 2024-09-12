@@ -289,6 +289,7 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
         
         // update database once every 5secs
         if(loop_count%5==0) {
+            // Device::getData();
             Device::insertHardCodeValues();
             loop_count = 1;
             uint32_t heap = esp_get_free_heap_size();

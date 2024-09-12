@@ -125,8 +125,8 @@ namespace Parser {
 
     char* convertMapToJSON(const std::map<std::string, std::vector<std::map<std::string, std::string>>>& engineData,
                             const std::map<std::string, std::vector<std::map<std::string, std::string>>>& jsonData,
-                            std::vector<std::string> enabledEngineIds,
-                                 const std::map<std::string, std::string>& additionalParams)
+                            std::vector<std::string> enabledEngineIds, 
+                            const std::map<std::string, std::string>& additionalParams)
     {
         cJSON *root = cJSON_CreateObject(); // Create JSON root object
 
@@ -207,6 +207,49 @@ namespace Parser {
         cJSON_Delete(root);
 
         // Return JSON string
+        return jsonString;
+    }
+
+    char* convertMapToJSON(const std::vector<engine_t>& jsonData,
+                            const std::map<std::string, std::string>& additionalParams)
+    {
+        cJSON *root = cJSON_CreateObject(); // Create JSON root object
+
+        // Add additional parameters to the root object if provided
+        for (const auto& [key, value] : additionalParams) 
+        {
+            cJSON_AddStringToObject(root, key.c_str(), value.c_str());
+        }
+        
+        cJSON *dataArray = cJSON_CreateArray();
+        for (auto const& data : jsonData)
+        {
+            cJSON *itemObject = cJSON_CreateObject();
+            // Iterate over each data item in engineData
+            for (const auto& [key, value] : data.engineData)
+            {
+                    cJSON_AddStringToObject(itemObject, key.c_str(), value.c_str());
+            }
+            // Iterate over each data item in tablesData
+            for (const auto& [tableName, tableValues] : data.tablesData)
+            {
+                cJSON *tableObject = cJSON_CreateObject(); // Create JSON object for each table item
+                for (const auto& [key, value] : tableValues)
+                {
+                    cJSON_AddStringToObject(tableObject, key.c_str(), value.c_str());
+                }
+                cJSON_AddItemToObject(itemObject, tableName.c_str(), tableObject);
+            }
+            cJSON_AddItemToArray(dataArray, itemObject);
+        }
+        cJSON_AddItemToObject(root, "Engines", dataArray);
+
+        // Convert cJSON root object to JSON string
+        char *jsonString = cJSON_Print(root);
+
+        // Clean up cJSON resources
+        cJSON_Delete(root);
+
         return jsonString;
     }
 

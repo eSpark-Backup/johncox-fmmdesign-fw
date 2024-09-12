@@ -19,18 +19,18 @@ static const size_t max_clients = 4;
 httpd_uri_t uri_handlers[] = 
 {
     { .uri = "/helloWorld",         .method = HTTP_GET,     .handler = helloworld,          .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getSensorData",      .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"SensorData",      .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getFuelManagement",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"FuelManagement",  .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/getEngines",         .method = HTTP_GET,     .handler = getEngines,             .user_ctx  = (void*)"Engines",          .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getSensorData",      .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"SensorData",      .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getFuelManagement",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"FuelManagement",  .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/getEngines",         .method = HTTP_GET,     .handler = getEngines,             .user_ctx  = (void*)"Engines",          .is_websocket = false,     .handle_ws_control_frames = false},
     // { .uri = "/getConfigurations",  .method = HTTP_GET,     .handler = getData,             .user_ctx  = (void*)"Engines",  .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/setConfigurations",  .method = HTTP_POST,     .handler = setConfigurations,   .user_ctx  = (void*)"Engines",  .is_websocket = false,     .handle_ws_control_frames = false},
     // { .uri = "/createUser",         .method = HTTP_GET,     .handler = createUser,          .user_ctx  = NULL},
     // { .uri = "/removeUser",         .method = HTTP_GET,     .handler = removeUser,          .user_ctx  = NULL},
     // { .uri = "/updatePassword",     .method = HTTP_GET,     .handler = updatePassword,      .user_ctx  = NULL},
-    { .uri = "/userLogin",          .method = HTTP_POST,    .handler = userLogin,           .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/favicon.ico",        .method = HTTP_GET,     .handler = faviconGetHandler,   .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
+    // { .uri = "/favicon.ico",        .method = HTTP_GET,     .handler = faviconGetHandler,   .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/ws",                 .method = HTTP_GET,     .handler = ws_handler,          .user_ctx  = NULL,                     .is_websocket = true,      .handle_ws_control_frames = true},
-    { .uri = "/startprovision",     .method = HTTP_POST,     .handler = startProvision,     .user_ctx  = NULL,                     .is_websocket = false,     .handle_ws_control_frames = false}
+    { .uri = "/userLogin",          .method = HTTP_POST,    .handler = userLogin,           .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
+    { .uri = "/setConfigurations",  .method = HTTP_POST,     .handler = setConfigurations,   .user_ctx  = (void*)"Engines",         .is_websocket = false,     .handle_ws_control_frames = false},
+    { .uri = "/startprovision",     .method = HTTP_POST,     .handler = startProvision,     .user_ctx  = NULL,                     .is_websocket = false,     .handle_ws_control_frames = false},
 };
 
 /* Start the HTTP server */

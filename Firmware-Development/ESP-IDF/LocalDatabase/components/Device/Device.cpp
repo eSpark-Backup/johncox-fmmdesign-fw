@@ -80,46 +80,103 @@ std::pair<std::string, std::string> Device::getCredentials()
     return generateCredentials();
 }
 
-char* Device::getData() {
-    // Map to hold the search results
-    std::map<std::string, std::vector<std::map<std::string, std::string>>> engineData;
+// char* Device::getData() {
+//     // Map to hold the search results
+//     std::map<std::string, std::vector<std::map<std::string, std::string>>> engineData;
     
-    // Retrieve data from Engines table to get all ids
-    // LocalDB& db = LocalDB::getInstance();
-    std::vector<std::map<std::string, std::string>> enginesData = dbPtr.search("Engines", {"*"}, {});
+//     // Retrieve data from Engines table and enabled engine ids
+//     std::vector<std::map<std::string, std::string>> enginesData = dbPtr.search("Engines", {"*"}, {});
+//     std::vector<std::string> enabledEngineIds;
 
-    std::vector<std::string> enabledEngineIds;
-    std::vector<std::map<std::string, std::string>> configurations = dbPtr.search("Engines", {"id"}, {{"enabled", "1"}});
-    for (auto& config : configurations) {
-        enabledEngineIds.push_back(config["id"]);
+//     for (const auto& engine : enginesData) {
+//         if (engine.at("enabled") == "1") {
+//             enabledEngineIds.push_back(engine.at("id"));
+//         }
+//     }
+
+//     // Fetch and combine data for a given table for all enabled engines
+//     auto fetchCombinedDataForTable = [&](const std::string& tableName) {
+//         std::vector<std::map<std::string, std::string>> combinedData;
+//         for (const auto& engineId : enabledEngineIds) {
+//             auto tableData = dbPtr.search(tableName.c_str(), {"*"}, {{"engine_id", engineId}}, true);
+//             combinedData.insert(combinedData.end(), tableData.begin(), tableData.end());
+//         }
+//         return combinedData;
+//     };
+
+//     // Prepare the data maps
+//     std::map<std::string, std::vector<std::map<std::string, std::string>>> sensorsData;
+//     sensorsData["SensorData"] = fetchCombinedDataForTable("SensorData");
+//     sensorsData["FuelManagement"] = fetchCombinedDataForTable("FuelManagement");
+//     engineData["Engines"] = enginesData;
+
+//     // Convert collected data to JSON format
+//     return Parser::convertMapToJSON(engineData, sensorsData, enabledEngineIds);
+// }
+
+char* Device::getData()
+{
+    std::vector<engine_t> data;
+    
+    // Retrieve data from Engines table and enabled engine ids
+    std::vector<std::map<std::string, std::string>> enginesTable = dbPtr.search("Engines", {"*"}, {});
+
+    if (data.empty()) 
+    {
+        for (int y = 0; y < enginesTable.size(); y++)
+        {
+            data.emplace_back();
+        }
     }
 
-    // Function to fetch and combine data for a given table
-    auto fetchAndCombineData = [&](const char* tableName) {
-        std::vector<std::map<std::string, std::string>> combinedData;
-        for (auto& engineId : enabledEngineIds) {
-
-            // Retrieve data from the table for this engine_id
-            std::vector<std::map<std::string, std::string>> tableData = dbPtr.search(tableName, {"*"}, {{"engine_id", engineId}}, true);
-
-            // Combine tableData into combinedData
-            combinedData.insert(combinedData.end(), tableData.begin(), tableData.end());
-        }
+    // Fetch and combine data for a given table for all enabled engines
+    auto fetchCombinedDataForTable = [&](const std::string& tableName, const char* index) {
+        std::map<std::string, std::string> combinedData;
+            auto tableData = dbPtr.search(tableName.c_str(), {"*"}, {{"engine_id", index}}, true);
+            for (const auto& mapData : tableData) {
+                combinedData.insert(mapData.begin(), mapData.end());
+            }
         return combinedData;
     };
 
-    std::map<std::string, std::vector<std::map<std::string, std::string>>> sensorsData;
-    sensorsData["SensorData"] = fetchAndCombineData("SensorData");
-    sensorsData["FuelManagement"] = fetchAndCombineData("FuelManagement");
+    int x = 0;
+    for (const auto& engine : enginesTable) 
+    {
+        data[x].engineData = engine;
+        if (data[x].engineData.at("enabled") == "1") {
+            data[x].tablesData["SensorData"] = fetchCombinedDataForTable("SensorData", data[x].engineData.at("id").c_str());
+            data[x].tablesData["FuelManagement"] = fetchCombinedDataForTable("FuelManagement", data[x].engineData.at("id").c_str());
+        }
+        else
+        {
+            std::map<std::string, std::string> emptyMap;
+            data[x].tablesData["SensorData"] = emptyMap;
+            data[x].tablesData["FuelManagement"] = emptyMap;
+            // printf("=====ELSE=====\nno values added.\n");
+        }
+        x++;
+    }
 
-    engineData["Engines"] = enginesData;
+    // for (int y = 0; y < data.size(); y++) 
+    // {
+    //     printf("data:\n");
+    //     for (const auto& [key, value] : data[y].engineData) {
+    //             printf("\t%s: %s\n", key.c_str(), value.c_str());
+    //     }
+    //     for (const auto& [key, value] : data[y].tablesData) {
+    //         printf("\t\t%s: \n", key.c_str());
+    //         for (const auto& [key1, value1] : value) {
+    //             printf("\t\t\t%s: %s\n", key1.c_str(), value1.c_str());
+    //         }
+    //     }
+    // }
 
-    // Convert jsonData to JSON
-    char* jsonResult = Parser::convertMapToJSON(engineData, sensorsData, enabledEngineIds);
-    
-    return jsonResult;
+    // Convert collected data to JSON format
+    // auto parsedData = Parser::convertMapToJSON(data);
+    // printf("parsed data is: %s", parsedData);
+    // return "ok";
+    return Parser::convertMapToJSON(data);
 }
-
 
 // Function to create tables
 void Device::createTables(LocalDB& db) {
@@ -196,10 +253,10 @@ void Device::insertRandomValues(LocalDB& db) {
                 {"id", std::to_string(i)},
                 {"name", "Engine M" + std::to_string(i)},
                 {"engine_type", std::string(engineType[i-1])}, // Replace with appropriate engine type
-                {"fuel_type", std::string(engineFuelType[i*2])},   // Replace with appropriate fuel type
+                {"fuel_type", std::string(engineFuelType[i])},   // Replace with appropriate fuel type
                 {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
-                {"enabled", std::to_string(1)},
-                // {"enabled", std::to_string(i % 2)},
+                // {"enabled", std::to_string(1)},
+                {"enabled", std::to_string(i % 2)},
                 {"position", std::string(enginePosition[i*2])} // Replace with appropriate volume per cycle
                 // {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
             };
@@ -233,11 +290,10 @@ void Device::insertHardCodeValues() {
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
         };
-        // ESP_LOGW(TAG, "SensorData: %s", sensorData.c_str());
-        printf("sensorData:\n");
-        for (const auto& pair : sensorData) {
-            printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
-        }
+        // printf("sensorData:\n");
+        // for (const auto& pair : sensorData) {
+        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        // }
         dbPtr.insert("SensorData", sensorData);
         
         // Insert random data into FuelManagement table
@@ -247,11 +303,10 @@ void Device::insertHardCodeValues() {
             {"remaining_fuel", std::to_string(i * (500 - fuel_burned))},
             {"distance_to_empty", std::to_string(i * (200 - (fuel_burned/2)))}
         };
-        // ESP_LOGW(TAG, "FuelManagement: %s", fuelManagement.c_str());
-        printf("fuelManagement:\n");
-        for (const auto& pair : fuelManagement) {
-            printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
-        }
+        // printf("fuelManagement:\n");
+        // for (const auto& pair : fuelManagement) {
+        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        // }
         dbPtr.insert("FuelManagement", fuelManagement);
     }
     fuel_burned += 1.4;

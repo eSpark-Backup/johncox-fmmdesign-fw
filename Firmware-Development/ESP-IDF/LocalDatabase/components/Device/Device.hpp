@@ -11,6 +11,12 @@
 
 static const char* filename = "/spiffs/test";
 
+typedef struct
+{
+    std::map<std::string, std::string> engineData;
+    std::map<std::string, std::map<std::string, std::string>> tablesData;
+}engine_t;
+
 class Device 
 {
     private:
