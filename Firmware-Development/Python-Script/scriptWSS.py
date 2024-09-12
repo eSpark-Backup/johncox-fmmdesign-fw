@@ -5,6 +5,7 @@ import random
 import time
 from zeroconf import Zeroconf, ServiceInfo
 import socket
+import ssl
 
 # Initialize counters for ids
 fuel_management_id_counter = 1  # Starting id for FuelManagement
@@ -14,13 +15,16 @@ sensor_data_id_counter = 1  # Starting id for SensorData
 def update_engine_data(engine):
     if engine['enabled'] == '1':
         # Update FuelManagement data
-        engine['FuelManagement']['distance_to_empty'] = str(float(engine['FuelManagement']['distance_to_empty']) - 1)
+        if float(engine['FuelManagement']['distance_to_empty']) > 0:  # Only decrease fuel if it's greater than 0
+            engine['FuelManagement']['distance_to_empty'] = str(float(engine['FuelManagement']['distance_to_empty']) - 1)
         engine['FuelManagement']['id'] = str(int(engine['FuelManagement']['id']) + 1)
-        engine['FuelManagement']['remaining_fuel'] = str(float(engine['FuelManagement']['remaining_fuel']) - 1)
-        engine['FuelManagement']['total_fuel_burned'] = str(float(engine['FuelManagement']['total_fuel_burned']) + 1)
+        if float(engine['FuelManagement']['remaining_fuel']) > 0:  # Only decrease fuel if it's greater than 0
+            engine['FuelManagement']['remaining_fuel'] = str(float(engine['FuelManagement']['remaining_fuel']) - 1)
+            engine['FuelManagement']['total_fuel_burned'] = str(float(engine['FuelManagement']['total_fuel_burned']) + 1)
         
         # Update SensorData
-        engine['SensorData']['fuel'] = str(float(engine['SensorData']['fuel']) - 1)  # Decrease fuel
+        if float(engine['SensorData']['fuel']) > 0:  # Only decrease fuel if it's greater than 0
+            engine['SensorData']['fuel'] = str(float(engine['SensorData']['fuel']) - 1)  # Decrease fuel
         engine['SensorData']['id'] = str(int(engine['SensorData']['id']) + 1)  # Increase ID by 1
         engine['SensorData']['speed'] = str(round(random.uniform(50.0, 70.0), 6))  # Random speed between 50 and 70
         engine['SensorData']['temperature_return'] = str(round(random.uniform(20.0, 33.0), 6))  # Random temp between 20 and 33
@@ -104,7 +108,6 @@ async def unregister(websocket):
     print(f"timesp1.local Client disconnected: {websocket.remote_address}")
 
 async def register1(websocket):
-    # Create a unique data packet for the client
     client_data_packet = create_new_packet()
     connected_clients1[websocket] = client_data_packet
     print(f"timesp2.local Client connected: {websocket.remote_address}")
@@ -140,7 +143,6 @@ async def send_data():
         # Wait for 1 second before sending the next packet
         await asyncio.sleep(send_interval)
         counter += send_interval
-
 async def send_data1():
     update_interval = 5  # Update values every 5 seconds
     send_interval = 1  # Send JSON packet every 1 second
@@ -168,11 +170,9 @@ async def send_data1():
         # Wait for 1 second before sending the next packet
         await asyncio.sleep(send_interval)
         counter += send_interval
-
 async def handle_client(websocket, path):
     await register(websocket)
     try:
-        # Keep the connection open to send periodic updates
         await websocket.wait_closed()
     finally:
         await unregister(websocket)
@@ -180,7 +180,6 @@ async def handle_client(websocket, path):
 async def handle_client1(websocket, path):
     await register1(websocket)
     try:
-        # Keep the connection open to send periodic updates
         await websocket.wait_closed()
     finally:
         await unregister1(websocket)
@@ -189,12 +188,12 @@ async def handle_client1(websocket, path):
 def start_mdns_service():
     zeroconf = Zeroconf()
     zeroconf1 = Zeroconf()
-    local_ip = socket.gethostbyname(socket.gethostname())  # Get the IP address of the current machine
+    local_ip = socket.gethostbyname(socket.gethostname())
     service_info0 = ServiceInfo(
         "_http._tcp.local.",
         "My WebSocket Server._http._tcp.local.",
         addresses=[socket.inet_aton(local_ip)],
-        port=80,  # Ensure that mDNS advertises the same port as the WebSocket server
+        port=443,  # Use the SSL-secured port (443)
         properties={},
         server="timesp1.local.",
     )
@@ -202,7 +201,7 @@ def start_mdns_service():
         "_http._tcp.local.",
         "My WebSocket Server1._http._tcp.local.",
         addresses=[socket.inet_aton(local_ip)],
-        port=81,  # Ensure that mDNS advertises the same port as the WebSocket server
+        port=444,  # Use SSL-secured port for second server
         properties={},
         server="timesp2.local.",
     )
@@ -212,11 +211,15 @@ def start_mdns_service():
     print(f"mDNS service started at timesp2.local on {local_ip}")
 
 async def main():
-    # Start the WebSocket server for timesp1.local on port 80
-    server1 = websockets.serve(handle_client, "0.0.0.0", 80)
+    # Create SSL context
+    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ssl_context.load_cert_chain(certfile="cacert.pem", keyfile="prvtkey.pem")
 
-    # Start the WebSocket server for timesp2.local on port 81
-    server2 = websockets.serve(handle_client1, "0.0.0.0", 81)
+    # Start the WebSocket server for timesp1.local on port 443 with SSL
+    server1 = websockets.serve(handle_client, "0.0.0.0", 443, ssl=ssl_context)
+
+    # Start the WebSocket server for timesp2.local on port 444 with SSL
+    server2 = websockets.serve(handle_client1, "0.0.0.0", 444, ssl=ssl_context)
 
     # Start both servers concurrently
     await asyncio.gather(
@@ -234,4 +237,5 @@ if __name__ == "__main__":
     # Start mDNS service
     start_mdns_service()
 
+    # Run the asyncio main function
     asyncio.run(main())
