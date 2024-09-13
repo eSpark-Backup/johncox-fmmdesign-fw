@@ -11,11 +11,17 @@ static int searchCallback(void* data, int argc, char** argv, char** azColName);
 
 LocalDB* LocalDB::instance = nullptr;
 
-LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {}
+LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {
+        mutex = xSemaphoreCreateMutex();
+}
 
 LocalDB::~LocalDB() 
 {
     close();
+    if (mutex != NULL) {
+        vSemaphoreDelete(mutex);
+    }
+    mutex = NULL;
 }
 
 LocalDB& LocalDB::getInstance(const char *filename) 
@@ -62,38 +68,42 @@ void LocalDB::createTable(const char *tableName, const char *columns)
 {
     char sql[512];
     snprintf(sql, sizeof(sql), "CREATE TABLE %s(%s);", tableName, columns);
-    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
+    // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     executeSQL(sql);
 }
 
 int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, char**), void *callbackData) 
 {
     char *zErrMsg = nullptr;
+    int rc = SQLITE_PERM;
     // ESP_LOGI(TAG, "%s", sql);
-    int64_t start = esp_timer_get_time();
-
-    int rc = sqlite3_exec(db, sql, callback, callbackData, &zErrMsg);
-    if (rc != SQLITE_OK) 
+    if(lock())
     {
-        ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
-        size_t total = 0, used = 0;
-        esp_err_t ret = esp_spiffs_info(NULL, &total, &used);
-        if (ret != ESP_OK) 
+        // int64_t start = esp_timer_get_time();
+
+        rc = sqlite3_exec(db, sql, callback, callbackData, &zErrMsg);
+        if (rc != SQLITE_OK) 
         {
-            ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+            ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
+            size_t total = 0, used = 0;
+            esp_err_t ret = esp_spiffs_info(NULL, &total, &used);
+            if (ret != ESP_OK) 
+            {
+                ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
+            } 
+            else 
+            {
+                ESP_LOGW(TAG, "Partition size: total: %d, used: %d", total, used);
+            }
+            sqlite3_free(zErrMsg);
         } 
         else 
         {
-            ESP_LOGW(TAG, "Partition size: total: %d, used: %d", total, used);
+            // ESP_LOGI(TAG, "Operation done successfully");
         }
-        sqlite3_free(zErrMsg);
-    } 
-    else 
-    {
-        // ESP_LOGI(TAG, "Operation done successfully");
+        // ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
+        unlock();
     }
-    // ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
-
     return rc;
 }
 
@@ -118,8 +128,7 @@ int LocalDB::insert(const char *tableName, std::map<std::string, std::string> da
     snprintf(sql, sizeof(sql), "INSERT INTO %s (%s) VALUES (%s);", tableName, columns.c_str(), values.c_str());
 
     // ESP_LOGW(TAG, "executeSQL called from %s and returning to %s", __func__, __builtin_return_address(0));
-    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
-    // Execute the INSERT statement
+    // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     return executeSQL(sql, nullptr);
 }
 
@@ -169,8 +178,7 @@ std::vector<std::map<std::string, std::string>> LocalDB::search(const char* tabl
         sql += " ORDER BY id DESC LIMIT 1"; // Assuming 'id' is the primary key
     }
     
-    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
-
+    // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     executeSQL(sql.c_str(), searchCallback, &results);
 
     return results;
@@ -189,8 +197,7 @@ int LocalDB::update(const char* tableName, const std::map<std::string, std::stri
         sql += condition;
     }
 
-    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
-
+    // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     return executeSQL(sql.c_str(), nullptr);
 }
 
@@ -216,7 +223,7 @@ int LocalDB::remove(const char* tableName, const std::map<std::string, std::stri
     if (where.empty())
     {
         sql = "DROP TABLE IF EXISTS " + std::string(tableName);
-        ESP_LOGW(TAG, "executeSQL called from %s", __func__);
+        // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
         return executeSQL(sql.c_str(), nullptr);
     }
 
@@ -228,7 +235,7 @@ int LocalDB::remove(const char* tableName, const std::map<std::string, std::stri
         sql += condition;
     }
     
-    ESP_LOGW(TAG, "executeSQL called from %s", __func__);
+    // ESP_LOGW(TAG, "executeSQL called from %s", __func__);
     return executeSQL(sql.c_str(), nullptr);
 }
 

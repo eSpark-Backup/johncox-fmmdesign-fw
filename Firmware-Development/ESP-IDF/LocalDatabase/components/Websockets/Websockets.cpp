@@ -254,8 +254,6 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
 {
     bool send_messages = true;
 
-    static uint8_t loop_count = 1;
-
     // Send async message to all connected clients that use websocket protocol every 10 seconds
     while (send_messages) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -274,28 +272,17 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
                     resp_arg->hd = *server;
                     resp_arg->fd = sock;
                     resp_arg->dataCallback = dataCallback;
-                    // if (httpd_queue_work(resp_arg->hd, sendDataWebsocket, resp_arg) != ESP_OK) {
-                    //     ESP_LOGE(TAG, "httpd_queue_work failed!");
-                    //     send_messages = false;
-                    //     break;
-                    // }
-                    sendDataWebsocket(resp_arg);
+                    if (httpd_queue_work(resp_arg->hd, sendDataWebsocket, resp_arg) != ESP_OK) {
+                        ESP_LOGE(TAG, "httpd_queue_work failed!");
+                        send_messages = false;
+                        break;
+                    }
+                    // sendDataWebsocket(resp_arg);
                 }
             }
         } else {
             ESP_LOGE(TAG, "httpd_get_client_list failed!");
             return;
         }
-        
-        // update database once every 5secs
-        if(loop_count%5==0) {
-            // Device::getData();
-            Device::insertHardCodeValues();
-            loop_count = 1;
-            uint32_t heap = esp_get_free_heap_size();
-            ESP_LOGI("HEAP:","Free Heap size: %d", heap);
-        }
-        loop_count++;
-        // end update
     }
 }

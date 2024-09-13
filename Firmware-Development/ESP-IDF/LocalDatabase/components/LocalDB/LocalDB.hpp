@@ -3,6 +3,9 @@
 
 #include <map>
 #include <vector>
+// #include <mutex>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <sqlite3.h>
 
 class LocalDB 
@@ -22,18 +25,28 @@ public:
     std::vector<std::map<std::string, std::string>> search(const char* tableName, std::vector<const char*> select, const std::map<std::string, std::string>& where, bool latest = false);
 
     void printLastError();
-
+    
 private:
     LocalDB(const char *filename); // Private constructor
     static LocalDB* instance; // Static instance pointer
     const char *filename;
     sqlite3 *db;
+    SemaphoreHandle_t mutex = NULL;
 
     template<typename... Args>
     void constructUpdateValues(std::stringstream& updateValues, const std::map<std::string, std::string>& values);
     
     std::string constructWhereCondition(const std::map<std::string, std::string>& where);
 
+    // Lock the mutex
+    bool lock(TickType_t xTicksToWait = portMAX_DELAY) {
+        return xSemaphoreTake(mutex, xTicksToWait) == pdTRUE;
+    }
+
+    // Unlock the mutex
+    void unlock() {
+        xSemaphoreGive(mutex);
+    }
 };
 
 void testDatabases();
