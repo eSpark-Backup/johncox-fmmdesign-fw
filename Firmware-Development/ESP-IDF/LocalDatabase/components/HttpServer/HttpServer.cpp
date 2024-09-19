@@ -30,17 +30,25 @@ httpd_uri_t uri_handlers[] =
     { .uri = "/ws",                 .method = HTTP_GET,     .handler = ws_handler,          .user_ctx  = NULL,                     .is_websocket = true,      .handle_ws_control_frames = true},
     { .uri = "/userLogin",          .method = HTTP_POST,    .handler = userLogin,           .user_ctx  = NULL,                      .is_websocket = false,     .handle_ws_control_frames = false},
     { .uri = "/setConfigurations",  .method = HTTP_POST,     .handler = setConfigurations,   .user_ctx  = (void*)"Engines",         .is_websocket = false,     .handle_ws_control_frames = false},
-    { .uri = "/startprovision",     .method = HTTP_POST,     .handler = startProvision,     .user_ctx  = NULL,                     .is_websocket = false,     .handle_ws_control_frames = false},
+    { .uri = "/startProvision",     .method = HTTP_POST,     .handler = startProvision,     .user_ctx  = NULL,                     .is_websocket = false,     .handle_ws_control_frames = false},
 };
 
 /* Start the HTTP server */
 void HttpServer::start(char* (*dataCallback)(void))
 {
-    # if 0
+    # if 1
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 15;
     config.max_open_sockets = 6;
+
+    wss_keep_alive_config_t keep_alive_config = KEEP_ALIVE_CONFIG_DEFAULT();
+    keep_alive_config.max_clients = max_clients;
+    keep_alive_config.client_not_alive_cb = client_not_alive_cb;
+    keep_alive_config.check_client_alive_cb = check_client_alive_cb;
+    wss_keep_alive_t keep_alive = wss_keep_alive_start(&keep_alive_config);
+
+    config.global_user_ctx = keep_alive;
 
     esp_err_t ret = httpd_start(&server, &config);
     #else

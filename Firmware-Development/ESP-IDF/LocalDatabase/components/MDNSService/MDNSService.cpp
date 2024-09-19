@@ -14,7 +14,8 @@ esp_err_t MDNSService::start(const char* hostName)
     }
 
     mdns_hostname_set(hostName);
-    mdns_instance_name_set("ESP32 mDNS Service");
+    mdns_instance_name_set(hostName);
+    mdns_service_add(NULL, "_websocket", "_tcp", 80, NULL, 0);
 
     ESP_LOGI(TAG, "mDNS Service Started");
     return ret;
