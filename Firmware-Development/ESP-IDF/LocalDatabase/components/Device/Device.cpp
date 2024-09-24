@@ -278,7 +278,7 @@ void Device::insertHardCodeValues() {
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
-    ESP_LOGW(TAG, "================");
+    // ESP_LOGW(TAG, "================");
     for (int i = 1; i <= 2; i++) 
     // for (int i = 1; i <= 2; ++i) 
     {

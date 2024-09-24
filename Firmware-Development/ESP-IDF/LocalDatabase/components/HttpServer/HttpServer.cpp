@@ -41,6 +41,7 @@ void HttpServer::start(char* (*dataCallback)(void))
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 15;
     config.max_open_sockets = 6;
+    config.stack_size = 10240;
 
     wss_keep_alive_config_t keep_alive_config = KEEP_ALIVE_CONFIG_DEFAULT();
     keep_alive_config.max_clients = max_clients;
