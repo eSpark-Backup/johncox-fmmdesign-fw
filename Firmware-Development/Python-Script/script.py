@@ -32,60 +32,58 @@ def update_engine_data(engine):
 
 # JSON data packet template
 data_packet_template = {
-    "data": {
-        "Engines": [
-            {
-                "enabled": "1",
-                "engine_type": "Type 1",
-                "fuel_type": "Type 1",
+    "Engines": [
+        {
+            "enabled": "1",
+            "engine_type": "Type 1",
+            "fuel_type": "Type 1",
+            "id": "1",
+            "name": "Engine M1",
+            "position": "Port",
+            "volume_per_cycle": "0.5",
+            "FuelManagement": {
+                "distance_to_empty": "500",
+                "engine_id": "1",
                 "id": "1",
-                "name": "Engine M1",
-                "position": "Port",
-                "volume_per_cycle": "0.5",
-                "FuelManagement": {
-                    "distance_to_empty": "500",
-                    "engine_id": "1",
-                    "id": "1",
-                    "remaining_fuel": "75",
-                    "total_fuel_burned": "89"
-                },
-                "SensorData": {
-                    "engine_id": "1",
-                    "fuel": "75",
-                    "id": "54",
-                    "speed": "62.64727",
-                    "temperature_return": "22.234875",
-                    "temperature_supply": "21.718935",
-                    "timestamp_unix": "132014061"
-                }
+                "remaining_fuel": "75",
+                "total_fuel_burned": "89"
             },
-            {
-                "enabled": "1",
-                "engine_type": "Type 2",
-                "fuel_type": "Type 2",
-                "id": "2",
-                "name": "Engine M2",
-                "position": "Starboard",
-                "volume_per_cycle": "1.0",
-                "FuelManagement": {
-                    "distance_to_empty": "400",
-                    "engine_id": "2",
-                    "id": "1",
-                    "remaining_fuel": "68",
-                    "total_fuel_burned": "97.300003"
-                },
-                "SensorData": {
-                    "engine_id": "2",
-                    "fuel": "68",
-                    "id": "54",
-                    "speed": "62.64727",
-                    "temperature_return": "22.234875",
-                    "temperature_supply": "21.718935",
-                    "timestamp_unix": "132014061"
-                }
+            "SensorData": {
+                "engine_id": "1",
+                "fuel": "75",
+                "id": "54",
+                "speed": "62.64727",
+                "temperature_return": "22.234875",
+                "temperature_supply": "21.718935",
+                "timestamp_unix": "132014061"
             }
-        ]
-    }
+        },
+        {
+            "enabled": "1",
+            "engine_type": "Type 2",
+            "fuel_type": "Type 2",
+            "id": "2",
+            "name": "Engine M2",
+            "position": "Starboard",
+            "volume_per_cycle": "1.0",
+            "FuelManagement": {
+                "distance_to_empty": "400",
+                "engine_id": "2",
+                "id": "1",
+                "remaining_fuel": "68",
+                "total_fuel_burned": "97.300003"
+            },
+            "SensorData": {
+                "engine_id": "2",
+                "fuel": "68",
+                "id": "54",
+                "speed": "62.64727",
+                "temperature_return": "22.234875",
+                "temperature_supply": "21.718935",
+                "timestamp_unix": "132014061"
+            }
+        }
+    ]
 }
 
 # Set of connected clients
@@ -125,7 +123,7 @@ async def send_data():
         # Update engine data every 'update_interval' seconds
         if counter % update_interval == 0:
             for client, data_packet in connected_clients.items():
-                for engine in data_packet['data']['Engines']:
+                for engine in data_packet['Engines']:
                     update_engine_data(engine)
             print(f"Updated data packet for all clients on timesp1.local domain at {time.strftime('%X')}")
 
@@ -153,7 +151,7 @@ async def send_data1():
         # Update engine data every 'update_interval' seconds
         if counter % update_interval == 0:
             for client, data_packet in connected_clients1.items():
-                for engine in data_packet['data']['Engines']:
+                for engine in data_packet['Engines']:
                     update_engine_data(engine)
             print(f"Updated data packet for all clients on timesp2.local domain at {time.strftime('%X')}")
 
