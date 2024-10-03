@@ -254,7 +254,7 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
 {
     bool send_messages = true;
 
-    // Send async message to all connected clients that use websocket protocol every 10 seconds
+    // Send async message to all connected clients that use websocket protocol every 1 seconds
     while (send_messages) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
 

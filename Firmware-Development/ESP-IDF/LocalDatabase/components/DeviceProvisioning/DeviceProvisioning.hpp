@@ -29,6 +29,7 @@ typedef enum
     WIFI_PROVISIONING = 1,
     WIFI_CONNECTED,
     WIFI_DISCONNECTED,
+    WIFI_CONNECTING,
     WIFI_RETRY,
     WIFI_DEFAULT
 }wifi_state_e;

@@ -3,6 +3,7 @@
 #include "Device.hpp"
 #include "FreeRTOS/task.h"
 #include "FreeRTOS/queue.h"
+#include "HttpServer.hpp"
 
 const int WIFI_CONNECTED_EVENT = BIT0;
 const int PROV_END_EVENT = BIT1;
@@ -24,6 +25,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
         switch (event_id)
         {
             case WIFI_PROV_START:
+                xEventGroupClearBits(wifi_event_group, PROV_END_EVENT);
                 ESP_LOGI(TAG, "Provisioning started");
                 break;
             case WIFI_PROV_CRED_RECV:
@@ -58,7 +60,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 else if (is_provisioned)
                 {
                     wifi_prov_mgr_deinit();
-                    xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
+                    // xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
                     setWiFiCredentials();
                     ESP_LOGW(TAG, "Fetching wifi credentials from NVS and attempting connection to AP.");
                     sendQueue(WIFI_CHECK_PROVISION, wifi_prov_queue, __func__);
@@ -67,14 +69,22 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
             }
             case WIFI_PROV_CRED_SUCCESS:
                 ESP_LOGI(TAG, "Provisioning successful");
+                is_provisioned = true;
                 break;
             case WIFI_PROV_END:
             {
                 /* De-initialize manager once provisioning is finished */
                 ESP_LOGI(TAG, "Event: WIFI_PROV_END");
                 wifi_prov_mgr_deinit();
+                // wifi_state = WIFI_CONNECTED;
+                // xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
+                break;
+            }
+            case WIFI_PROV_DEINIT:
+            {
                 xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
-                wifi_state = WIFI_CONNECTED;
+                ESP_LOGI(TAG, "Event: WIFI_PROV_DEINIT");
+                HttpServer::start();
                 break;
             }
             default:
@@ -127,12 +137,13 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                     ESP_LOGI(TAG, "Disconnected. Connecting to the AP.");
                     sendQueue(WIFI_CONNECT, wifi_prov_queue, __func__);
                 }
+                wifi_state = WIFI_CONNECTING;
                 break;
             }
             case WIFI_EVENT_STA_CONNECTED:
             {
                 ESP_LOGI(TAG, "Event: WIFI_EVENT_STA_CONNECTED");
-                wifi_state = WIFI_CONNECTED;
+                // wifi_state = WIFI_CONNECTED;
                 break;
             }
             case WIFI_EVENT_STA_DISCONNECTED:
@@ -142,7 +153,7 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
 
                 if (!is_provisioned && (WIFI_PROVISIONING != wifi_state))
                 {
-                    sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+                    // sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
                 }
                 else if (WIFI_CONNECTED == wifi_state)
                 {
@@ -189,13 +200,13 @@ void DeviceProvisioning::wifiConnSTA(void)
     if(ESP_OK == err)
     {
         ESP_LOGI(TAG, "Connected to wifi.");
-        wifi_state = WIFI_CONNECTED;
+        // wifi_state = WIFI_CONNECTED;
     }
     else
     {
         ESP_LOGE(TAG, "Re-Connection Timed out, Activating AP Provisioning mode.");
-        wifi_state = WIFI_PROVISIONING;
         sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
+        wifi_state = WIFI_PROVISIONING;
     }
 }
 
@@ -385,7 +396,7 @@ void DeviceProvisioning::start(void)
         ESP_LOGI(TAG, "provisioningTask was created successfully.");
     }
 
-    xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
+    xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT | PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
 }
 
 void DeviceProvisioning::provMgrStart(void)
@@ -409,13 +420,19 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
 {
     ESP_LOGI(TAG, "provisioningTask Started.");
     uint8_t buf;
+    bool run_task = true;
 
-    while(1)
+    while(run_task)
     {
         xQueueReceive(wifi_prov_queue, &buf, portMAX_DELAY);
         ESP_LOGI(TAG, "%s: Running switch cases.", __func__);
         switch (buf)
         {
+            // case STOP_TASK:
+            //     run_task = false;
+            //     break;
+            // case START_SERVER:
+            //     break;
             case WIFI_CHECK_PROVISION:
             {
                 ESP_LOGW(TAG, "%s: case WIFI_CHECK_PROVISION.", __func__);
@@ -427,12 +444,14 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
                 }
                 else if (!is_provisioned)
                 {
+                    ESP_LOGW(TAG, "%s: WiFi is not provisioned.", __func__);
                     sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
                 }
                 else if(is_provisioned)
                 {
                     ESP_LOGI(TAG, "%s: WiFi is provisioned. Starting WiFi.", __func__);
                     wifi_state = WIFI_DISCONNECTED;
+                    wifi_prov_mgr_deinit();
                     wifiInitSTA();
                 }
                 break;
@@ -440,13 +459,8 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
             case WIFI_PROVISION:
             {
                 ESP_LOGW(TAG, "%s: case WIFI_PROVISION.", __func__);
-                // esp_err_t err = wifi_prov_mgr_is_provisioned(&is_provisioned);
-                // ESP_LOGE(TAG, "%s error occured",esp_err_to_name(err));
-                // if(ESP_ERR_INVALID_STATE == err)
-                // {
-                //     provMgrStart();
-                //     sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
-                // }
+                HttpServer::stopServer();
+
                 if(!is_provisioned || (WIFI_CONNECTED != wifi_state))
                 {
                     ESP_LOGI(TAG, "Starting provisioning manager");
@@ -474,8 +488,9 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
                     }
                     // ESP_ERROR_CHECK(wifi_prov_mgr_start_provisioning(security, pop, service_name, service_key));
                     wifi_prov_mgr_endpoint_register("domain-name", DeviceProvisioning::domainNameDataHandler, NULL);
-                    xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
-                    is_provisioned = true;
+                    // xEventGroupWaitBits(wifi_event_group, PROV_END_EVENT, pdFALSE, pdTRUE, portMAX_DELAY);
+                    // xEventGroupSetBits(wifi_event_group, STARTUP_END_EVENT);
+                    // is_provisioned = true;
                 }
                 break;
             }
@@ -489,6 +504,8 @@ void DeviceProvisioning::provisioningTask(void *pvParameters)
                 break;
         }
     }
+    vQueueDelete(wifi_prov_queue);
+    vTaskDelete(NULL);
 }
 
 esp_err_t DeviceProvisioning::reset(void)

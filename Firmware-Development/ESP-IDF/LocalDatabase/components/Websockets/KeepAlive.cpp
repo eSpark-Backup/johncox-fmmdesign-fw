@@ -153,8 +153,7 @@ static void keep_alive_task(void* arg)
             }
     }
     vQueueDelete(keep_alive_storage->q);
-    free(keep_alive_storage);
-
+    // free(keep_alive_storage);
     vTaskDelete(NULL);
 }
 

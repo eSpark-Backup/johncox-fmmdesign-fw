@@ -255,8 +255,8 @@ void Device::insertRandomValues(LocalDB& db) {
                 {"engine_type", std::string(engineType[i-1])}, // Replace with appropriate engine type
                 {"fuel_type", std::string(engineFuelType[i])},   // Replace with appropriate fuel type
                 {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
-                // {"enabled", std::to_string(1)},
-                {"enabled", std::to_string(i % 2)},
+                {"enabled", std::to_string(1)},
+                // {"enabled", std::to_string(i % 2)},
                 {"position", std::string(enginePosition[i*2])} // Replace with appropriate volume per cycle
                 // {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
             };

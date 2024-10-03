@@ -21,6 +21,7 @@
 static const char *TAG = "app_main";
 
 #define STACK_SIZE (10 * 1024)
+#define TEST_WITHOUT_APP 0
 
 void vTaskCode(void * pvParameters)
 {
@@ -48,7 +49,10 @@ extern "C" void app_main()
 
     DeviceProvisioning devProv;
 
-    // Device::saveDomainName("timesp1");
+    #if TEST_WITHOUT_APP
+    Device::saveDomainName("timesp1");
+    #endif
+
     ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
     
     devProv.start();
@@ -79,5 +83,10 @@ extern "C" void app_main()
                     5,               /* Priority at which the task is created. */
                     &xHandle );      /* Used to pass out the created task's handle. */
 
-    HttpServer::start(Device::getData);
+    HttpServer::init(Device::getData);
+
+    while(true) {
+      // taskYIELD();
+      vTaskDelay(portMAX_DELAY);
+    }
 }
