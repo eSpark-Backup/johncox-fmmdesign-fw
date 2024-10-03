@@ -50,7 +50,7 @@ void HttpServer::init(char* (*callback)(void))
                     "websocketTask",        /* Text name for the task. */
                     STACK_SIZE,             /* Stack size in words, not bytes. */
                     ( void * ) callback,    /* Parameter passed into the task. */
-                    tskIDLE_PRIORITY,       /* Priority at which the task is created. */
+                    tskIDLE_PRIORITY+3,       /* Priority at which the task is created. */
                     &websocketTaskHandle ); /* Used to pass out the created task's handle. */
     ESP_LOGI(TAG, "Websocket task created.");
 }
