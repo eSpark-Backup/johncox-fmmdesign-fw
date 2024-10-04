@@ -57,7 +57,10 @@ void HttpServer::init(char* (*callback)(void))
 
 void HttpServer::wssServerTask(void* args) {
     CallbackFunction callback = (CallbackFunction) args;
-    wss_server_send_messages(&serverHandle, callback);
+    while(true)
+    {
+        wss_server_send_messages(&serverHandle, callback);
+    }
     ESP_LOGW(TAG, "Websocket task terminated.");
     vTaskDelete(NULL);  // Clean up the task after execution
 }
@@ -73,7 +76,7 @@ void HttpServer::start()
     // httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 15;
-    config.max_open_sockets = 6;
+    config.max_open_sockets = max_clients;
     config.stack_size = 10240;
 
     wss_keep_alive_config_t keep_alive_config = KEEP_ALIVE_CONFIG_DEFAULT();
@@ -100,7 +103,6 @@ void HttpServer::start()
     httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
     config.httpd.ctrl_port = 55555;
     config.httpd.max_uri_handlers = 15;
-    config.httpd.max_open_sockets = 6;
     config.httpd.max_open_sockets = max_clients;
     config.httpd.global_user_ctx = keepAlive;
     config.httpd.open_fn = wss_open_fd;

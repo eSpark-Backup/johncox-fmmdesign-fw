@@ -36,7 +36,7 @@ static const size_t max_clients = 4;
 esp_err_t ws_handler(httpd_req_t *req)
 {
     if (req->method == HTTP_GET) {
-        ESP_LOGI(TAG, "Handshake done, the new connection was opened");
+        ESP_LOGI(TAG, "Handshake done, new connection was opened, sockfd=%d", httpd_req_to_sockfd(req));
         return ESP_OK;
     }
     httpd_ws_frame_t ws_pkt;
@@ -263,7 +263,8 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
         }
         size_t clients = max_clients;
         int    client_fds[max_clients];
-        if (httpd_get_client_list(*server, &clients, client_fds) == ESP_OK) {
+        esp_err_t ret = httpd_get_client_list(*server, &clients, client_fds);
+        if ( ESP_OK == ret ) {
             for (size_t i=0; i < clients; ++i) {
                 int sock = client_fds[i];
                 if (httpd_ws_get_fd_info(*server, sock) == HTTPD_WS_CLIENT_WEBSOCKET) {
@@ -281,7 +282,7 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
                 }
             }
         } else {
-            ESP_LOGE(TAG, "httpd_get_client_list failed!");
+            ESP_LOGE(TAG, "httpd_get_client_list failed! error code: %d, %s", ret, esp_err_to_name(ret));
             return;
         }
     }

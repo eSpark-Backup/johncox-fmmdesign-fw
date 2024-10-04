@@ -159,7 +159,7 @@ static void keep_alive_task(void* arg)
 
 wss_keep_alive_t wss_keep_alive_start(wss_keep_alive_config_t *config)
 {
-    size_t queue_size = config->max_clients/2;
+    size_t queue_size = (config->max_clients > 1) ? config->max_clients/2 : config->max_clients;
     size_t client_list_size = config->max_clients + queue_size;
     wss_keep_alive_t keep_alive_storage = (wss_keep_alive_t)calloc(1,
             sizeof(wss_keep_alive_storage_t) + client_list_size* sizeof(client_fd_action_t));
