@@ -45,13 +45,15 @@ void HttpServer::init(char* (*callback)(void))
     BaseType_t xReturned;
 
     /* Create the task, storing the handle. */
-    xReturned = xTaskCreate(
+    // xReturned = xTaskCreate(
+    xReturned = xTaskCreatePinnedToCore(
                     wssServerTask,          /* Function that implements the task. */
                     "websocketTask",        /* Text name for the task. */
                     STACK_SIZE,             /* Stack size in words, not bytes. */
                     ( void * ) callback,    /* Parameter passed into the task. */
                     tskIDLE_PRIORITY+3,       /* Priority at which the task is created. */
-                    &websocketTaskHandle ); /* Used to pass out the created task's handle. */
+                    &websocketTaskHandle,// ); /* Used to pass out the created task's handle. */
+                    1 ); /* Core on which this task is attached to. */
     ESP_LOGI(TAG, "Websocket task created.");
 }
 

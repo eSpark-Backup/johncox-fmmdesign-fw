@@ -117,7 +117,9 @@ std::pair<std::string, std::string> Device::getCredentials()
 char* Device::getData()
 {
     std::vector<engine_t> data;
-    
+
+    std::map<std::string, std::string> vesselTableData;
+    std::vector<std::map<std::string, std::string>> vesselTable = dbPtr.search("Vessel", {"*"}, {}, true);
     // Retrieve data from Engines table and enabled engine ids
     std::vector<std::map<std::string, std::string>> enginesTable = dbPtr.search("Engines", {"*"}, {});
 
@@ -136,6 +138,8 @@ char* Device::getData()
             for (const auto& mapData : tableData) {
                 combinedData.insert(mapData.begin(), mapData.end());
             }
+        combinedData.erase("id");
+        combinedData.erase("engine_id");
         return combinedData;
     };
 
@@ -154,7 +158,14 @@ char* Device::getData()
             data[x].tablesData["FuelManagement"] = emptyMap;
             // printf("=====ELSE=====\nno values added.\n");
         }
+        data[x].engineData.erase("id");
         x++;
+    }
+
+    for (const auto& vessel : vesselTable) 
+    {
+        vesselTableData = vessel;
+        vesselTableData.erase("id");
     }
 
     // for (int y = 0; y < data.size(); y++) 
@@ -175,7 +186,7 @@ char* Device::getData()
     // auto parsedData = Parser::convertMapToJSON(data);
     // printf("parsed data is: %s", parsedData);
     // return "ok";
-    return Parser::convertMapToJSON(data);
+    return Parser::convertMapToJSON(data, vesselTableData);
 }
 
 // Function to create tables
@@ -185,7 +196,7 @@ void Device::createTables(LocalDB& db) {
                                   "engine_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
                                   "fuel FLOAT NOT NULL, "
-                                  "speed FLOAT NOT NULL, "
+                                //   "speed FLOAT NOT NULL, "
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
 
@@ -204,6 +215,10 @@ void Device::createTables(LocalDB& db) {
                           "fuel_type TEXT, "
                           "position TEXT, "
                           "volume_per_cycle FLOAT");
+
+    // Create Vessel table
+    db.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
+                             "speed FLOAT NOT NULL");
 
     // Create UserCredentials table
     db.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
@@ -228,7 +243,7 @@ void Device::insertRandomValues(LocalDB& db) {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(seed)},
-            {"speed", std::to_string(speedDistribution(gen))},
+            // {"speed", std::to_string(speedDistribution(gen))},
             {"fuel", std::to_string(fuelDistribution(gen))},
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
@@ -263,6 +278,12 @@ void Device::insertRandomValues(LocalDB& db) {
             db.insert("Engines", enginesData);
 
         }
+        // Insert data into Vessel table
+        std::map<std::string, std::string> VesselData = {
+            {"speed", std::to_string(speedDistribution(gen))}
+        };
+        db.insert("Vessel", VesselData);
+
         flag = true;
     }
 }
@@ -279,13 +300,13 @@ void Device::insertHardCodeValues() {
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
     // ESP_LOGW(TAG, "================");
-    for (int i = 1; i <= 2; i++) 
-    // for (int i = 1; i <= 2; ++i) 
+    for (int i = 1; i <= 2; i++)
+    // for (int i = 1; i <= 2; ++i)
     {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(seed)},
-            {"speed", std::to_string(speedDistribution(gen))},
+            // {"speed", std::to_string(speedDistribution(gen))},
             {"fuel", std::to_string(fuelDistribution(gen))},
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
@@ -309,6 +330,17 @@ void Device::insertHardCodeValues() {
         // }
         dbPtr.insert("FuelManagement", fuelManagement);
     }
+
+    // Insert data into Vessel table
+    std::map<std::string, std::string> VesselData = {
+        {"speed", std::to_string(speedDistribution(gen))},
+    };
+    dbPtr.insert("Vessel", VesselData);
+    // printf("Vessel:\n");
+    // for (const auto& pair : VesselData) {
+    //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+    // }
+
     fuel_burned += 1.4;
 }
 
