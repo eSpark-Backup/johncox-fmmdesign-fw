@@ -158,7 +158,7 @@ char* Device::getData()
             data[x].tablesData["FuelManagement"] = emptyMap;
             // printf("=====ELSE=====\nno values added.\n");
         }
-        data[x].engineData.erase("id");
+        // data[x].engineData.erase("id");
         x++;
     }
 

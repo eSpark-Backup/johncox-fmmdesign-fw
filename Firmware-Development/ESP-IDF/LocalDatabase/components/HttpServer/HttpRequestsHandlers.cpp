@@ -163,6 +163,8 @@ esp_err_t setConfigurations(httpd_req_t *req)
     }
     buf[total_len] = '\0'; // Null-terminate the request body
 
+    printf("Received configurations.\n%s\n", buf);
+    
     // Parse JSON
     cJSON *root = cJSON_Parse(buf);
     free(buf);
@@ -173,13 +175,14 @@ esp_err_t setConfigurations(httpd_req_t *req)
     }
 
     // Extract data array from JSON
-    cJSON *data_array = cJSON_GetObjectItem(root, "data");
+    cJSON *data_array = cJSON_GetObjectItem(root, "Engines");
     if (!cJSON_IsArray(data_array)) 
     {
         cJSON_Delete(root);
         httpd_resp_send_err(req, invalidJsonStructure.status, invalidJsonStructure.responseJson);
         return ESP_FAIL;
     }
+
 
     // Process each configuration in the data array
     cJSON *config = NULL;
@@ -245,6 +248,7 @@ esp_err_t setConfigurations(httpd_req_t *req)
         {
             cJSON_Delete(root);
             httpd_resp_send_err(req, engineIdNotProvided.status, engineIdNotProvided.responseJson);
+            return ESP_FAIL;
         }
     }
 
