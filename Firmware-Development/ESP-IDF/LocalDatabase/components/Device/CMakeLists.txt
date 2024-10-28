@@ -3,4 +3,4 @@ idf_component_register(SRCS "Device.cpp"
                     REQUIRES Parser
                             LocalDB
                             DeviceStorage
-                            )
+                            Sensors             )

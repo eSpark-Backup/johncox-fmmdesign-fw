@@ -8,6 +8,7 @@
 #include "Parser.hpp"
 #include "LocalDB.hpp"
 #include "DeviceStorage.hpp"
+#include "Sensors.hpp"
 
 static const char* TAG = "Device";
 
@@ -79,40 +80,6 @@ std::pair<std::string, std::string> Device::getCredentials()
 
     return generateCredentials();
 }
-
-// char* Device::getData() {
-//     // Map to hold the search results
-//     std::map<std::string, std::vector<std::map<std::string, std::string>>> engineData;
-    
-//     // Retrieve data from Engines table and enabled engine ids
-//     std::vector<std::map<std::string, std::string>> enginesData = dbPtr.search("Engines", {"*"}, {});
-//     std::vector<std::string> enabledEngineIds;
-
-//     for (const auto& engine : enginesData) {
-//         if (engine.at("enabled") == "1") {
-//             enabledEngineIds.push_back(engine.at("id"));
-//         }
-//     }
-
-//     // Fetch and combine data for a given table for all enabled engines
-//     auto fetchCombinedDataForTable = [&](const std::string& tableName) {
-//         std::vector<std::map<std::string, std::string>> combinedData;
-//         for (const auto& engineId : enabledEngineIds) {
-//             auto tableData = dbPtr.search(tableName.c_str(), {"*"}, {{"engine_id", engineId}}, true);
-//             combinedData.insert(combinedData.end(), tableData.begin(), tableData.end());
-//         }
-//         return combinedData;
-//     };
-
-//     // Prepare the data maps
-//     std::map<std::string, std::vector<std::map<std::string, std::string>>> sensorsData;
-//     sensorsData["SensorData"] = fetchCombinedDataForTable("SensorData");
-//     sensorsData["FuelManagement"] = fetchCombinedDataForTable("FuelManagement");
-//     engineData["Engines"] = enginesData;
-
-//     // Convert collected data to JSON format
-//     return Parser::convertMapToJSON(engineData, sensorsData, enabledEngineIds);
-// }
 
 char* Device::getData()
 {
@@ -190,13 +157,13 @@ char* Device::getData()
 }
 
 // Function to create tables
-void Device::createTables(LocalDB& db) {
+void Device::createTables(LocalDB& db)
+{
     // Create SensorData table
     db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                   "engine_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
                                   "fuel FLOAT NOT NULL, "
-                                //   "speed FLOAT NOT NULL, "
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
 
@@ -209,12 +176,12 @@ void Device::createTables(LocalDB& db) {
 
     // Create Engines table
     db.createTable("Engines", "id TINYINT PRIMARY KEY NOT NULL, "
-                          "name TEXT, "
-                          "enabled BOOLEAN NOT NULL, "
-                          "engine_type TEXT, "
-                          "fuel_type TEXT, "
-                          "position TEXT, "
-                          "volume_per_cycle FLOAT");
+                              "name TEXT, "
+                              "enabled BOOLEAN NOT NULL, "
+                              "engine_type TEXT, "
+                              "fuel_type TEXT, "
+                              "position TEXT, "
+                              "volume_per_cycle FLOAT");
 
     // Create Vessel table
     db.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
@@ -228,7 +195,8 @@ void Device::createTables(LocalDB& db) {
 }
 
 // Function to insert random values into tables
-void Device::insertRandomValues(LocalDB& db) {
+void Device::insertRandomValues(LocalDB& db)
+{
     // Get current timestamp
     uint64_t seed = esp_timer_get_time();
 
@@ -288,7 +256,8 @@ void Device::insertRandomValues(LocalDB& db) {
     }
 }
 // Function to insert random values into tables
-void Device::insertHardCodeValues() {
+void Device::insertHardCodeValues()
+{
     // Get current time in microseconds to use as a seed
     uint64_t seed = esp_timer_get_time();
     static float fuel_burned = 1.0;
@@ -306,7 +275,6 @@ void Device::insertHardCodeValues() {
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(seed)},
-            // {"speed", std::to_string(speedDistribution(gen))},
             {"fuel", std::to_string(fuelDistribution(gen))},
             {"temperature_supply", std::to_string(temperatureDistribution(gen))},
             {"temperature_return", std::to_string(temperatureDistribution(gen))}
@@ -322,6 +290,74 @@ void Device::insertHardCodeValues() {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"total_fuel_burned", std::to_string(i * (100 + fuel_burned))},
             {"remaining_fuel", std::to_string(i * (500 - fuel_burned))},
+            {"distance_to_empty", std::to_string(i * (200 - (fuel_burned/2)))}
+        };
+        // printf("fuelManagement:\n");
+        // for (const auto& pair : fuelManagement) {
+        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        // }
+        dbPtr.insert("FuelManagement", fuelManagement);
+    }
+
+    // Insert data into Vessel table
+    std::map<std::string, std::string> VesselData = {
+        {"speed", std::to_string(speedDistribution(gen))},
+    };
+    dbPtr.insert("Vessel", VesselData);
+    // printf("Vessel:\n");
+    // for (const auto& pair : VesselData) {
+    //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+    // }
+
+    fuel_burned += 1.4;
+}
+// Function to insert sensor values into tables
+void Device::insertSensorValues()
+{
+    // Get current time in microseconds to use as a seed
+    uint64_t seed = esp_timer_get_time();
+    static float fuel_burned = 1.0;
+    float fuel_factor = 1;          // fuel conversion
+    float vol_factor = 1;           // tank volumetric capacity
+
+
+    // std::vector<std::map<std::string, std::string>> fuel_type = dbPtr.search("Engines", {"fuel_type"}, {});
+
+    // for (const auto& type : fuel_type) 
+    // {
+    //     std::map<std::string, std::string> fuelType = type;
+    //     if (fuelType.at("fuel_type") == "Gasoline")          {     fuel_factor = ;   }
+    //     else if (fuelType.at("fuel_type") == "Diesel")       {     fuel_factor = ;   }
+    //     else if (fuelType.at("fuel_type") == "Biodiesel")    {     fuel_factor = ;   }
+    // }
+
+    // Initialize random number generator with the seed
+    std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
+    std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
+
+    // ESP_LOGW(TAG, "================");
+    for (int i = 1; i <= 2; i++)
+    // for (int i = 1; i <= 2; ++i)
+    {
+        std::map<std::string, std::string> sensorData = {
+            {"engine_id", (i % 2 == 0) ? "1" : "2"},
+            {"timestamp_unix", std::to_string(seed)},
+            {"fuel", std::to_string(Sensors::getFuel((ENGINE_e)i, PROBE_1))},
+            {"temperature_supply", std::to_string(Sensors::getTemp((ENGINE_e)i, PROBE_1))},
+            {"temperature_return", std::to_string(Sensors::getTemp((ENGINE_e)i, PROBE_2))}
+        };
+        // printf("sensorData:\n");
+        // for (const auto& pair : sensorData) {
+        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
+        // }
+        dbPtr.insert("SensorData", sensorData);
+        
+        // Insert random data into FuelManagement table
+        float fuel = Sensors::getFuel((ENGINE_e)i, PROBE_1);
+        std::map<std::string, std::string> fuelManagement = {
+            {"engine_id", (i % 2 == 0) ? "1" : "2"},
+            {"total_fuel_burned", std::to_string((100-fuel) * fuel_factor)},
+            {"remaining_fuel", std::to_string(fuel * vol_factor)},
             {"distance_to_empty", std::to_string(i * (200 - (fuel_burned/2)))}
         };
         // printf("fuelManagement:\n");

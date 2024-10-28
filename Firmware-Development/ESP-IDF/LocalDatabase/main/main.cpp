@@ -17,6 +17,7 @@
 #include "DeviceProvisioning.hpp"
 #include "MDNSService.hpp"
 #include "Websockets.hpp"
+#include "Sensors.hpp"
 
 static const char *TAG = "app_main";
 
@@ -30,7 +31,7 @@ void vTaskCode(void * pvParameters)
     for( ;; )
     {
         vTaskDelay(5000 / portTICK_PERIOD_MS);
-        Device::insertHardCodeValues();
+        Device::insertSensorValues();
     }
 }
 
@@ -46,6 +47,7 @@ extern "C" void app_main()
     
     Storage::init();        // Initializing storage (SPIFF/NAND)
     Device::init();         // Initializing database (and inserting values)
+    Sensors::sensorsInit();
 
     DeviceProvisioning devProv;
 
@@ -77,7 +79,7 @@ extern "C" void app_main()
     /* Create the task, storing the handle. */
     xReturned = xTaskCreate(
                     vTaskCode,       /* Function that implements the task. */
-                    "insertHardCodeValues",          /* Text name for the task. */
+                    "insertSensorValues",          /* Text name for the task. */
                     STACK_SIZE,      /* Stack size in words, not bytes. */
                     ( void * ) 1,    /* Parameter passed into the task. */
                     5,               /* Priority at which the task is created. */

@@ -29,6 +29,7 @@ class Device
     public:
         static void insertRandomValues(LocalDB& db);
         static void insertHardCodeValues();
+        static void insertSensorValues();
         static char* getData();
         static std::pair<std::string, std::string> getCredentials();
         static void init();

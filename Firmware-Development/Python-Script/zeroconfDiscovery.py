@@ -28,7 +28,8 @@ def main():
     zeroconf = Zeroconf()
 
     # Specify the service type you are interested in (e.g., "_http._tcp.local." for HTTP services)
-    service_type = "_websocket._tcp.local."
+    # service_type = "_websocket._tcp.local."
+    service_type = "_http._tcp.local."
 
     print(f"Discovering services of type {service_type}...\n")
     
