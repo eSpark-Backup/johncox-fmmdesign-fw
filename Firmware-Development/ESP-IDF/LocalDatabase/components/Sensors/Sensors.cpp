@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include "driver/i2c.h"
 
+esp_err_t Sensors::_fuel_sensor_state = ESP_OK;
+esp_err_t Sensors::_temp_sensor_state = ESP_OK;
 
 esp_err_t Sensors::sensorsInit()
 {
@@ -21,7 +23,13 @@ esp_err_t Sensors::sensorsInit()
 
     i2c_param_config(i2c_master_port, &conf);
 
-    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    esp_err_t status = i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    
+    uint8_t temp;
+    _fuel_sensor_state = ads1115_register_read(ADS1115_TANK_SENSOR_ADDR, CONVERSION_REGISTER, &temp, 1);
+    _temp_sensor_state = ads1115_register_read(ADS1115_TEMP_SENSOR_ADDR, CONVERSION_REGISTER, &temp, 1);
+    
+    return status;
 }
 
 float Sensors::getTemp(ENGINE_e engine, PROBE_e probe)
@@ -78,12 +86,28 @@ float Sensors::getFuel(ENGINE_e engine, PROBE_e probe)
     return fuel;
 }
 
+bool Sensors::isTempSensorConnected(void)
+{
+    if(_temp_sensor_state == ESP_OK)
+        return true;
+
+    return false;
+}
+
+bool Sensors::isFuelSensorConnected(void)
+{
+    if(_fuel_sensor_state == ESP_OK)
+        return true;
+
+    return false;
+}
+
 float Sensors::ads_read(uint8_t dev_addr, uint8_t ads_channl, gpio_num_t alert_pin)
 {
     uint8_t data[2];
-    ESP_ERROR_CHECK(ads1115_register_write_byte(dev_addr, CONFIG_REGISTER, CONFIG_REGISTER_VAL(CONFIG_OS,ads_channl,CONFIG_PGA_4096,CONFIG_MODE,CONFIG_DR_250SPS,CONFIG_COMP_MODE,CONFIG_COMP_POL,CONFIG_COMP_LAT,CONFIG_COMP_QUE)));
+    ads1115_register_write_byte(dev_addr, CONFIG_REGISTER, CONFIG_REGISTER_VAL(CONFIG_OS,ads_channl,CONFIG_PGA_4096,CONFIG_MODE,CONFIG_DR_250SPS,CONFIG_COMP_MODE,CONFIG_COMP_POL,CONFIG_COMP_LAT,CONFIG_COMP_QUE));
     // vTaskDelay(10/portTICK_RATE_MS);
-    ESP_ERROR_CHECK(ads1115_register_read(dev_addr, CONFIG_REGISTER, data, 2));
+    ads1115_register_read(dev_addr, CONFIG_REGISTER, data, 2);
 
     // ESP_LOGI(TAG, "CONFIG_REGISTER = %X %X", data[0], data[1]);
 
@@ -92,7 +116,7 @@ float Sensors::ads_read(uint8_t dev_addr, uint8_t ads_channl, gpio_num_t alert_p
         vTaskDelay(1/portTICK_RATE_MS);
     }while(gpio_get_level((gpio_num_t)alert_pin));
 
-    ESP_ERROR_CHECK(ads1115_register_read(dev_addr, CONVERSION_REGISTER, data, 2));
+    ads1115_register_read(dev_addr, CONVERSION_REGISTER, data, 2);
     // volts = (data[1] | (data[0] << 8)) * 0.000125;
     return ((data[1] | (data[0] << 8)) * 0.000125);
 }

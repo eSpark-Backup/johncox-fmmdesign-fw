@@ -14,7 +14,7 @@
 #define I2C_MASTER_FREQ_HZ          400000                     /*!< I2C master clock frequency */
 #define I2C_MASTER_TX_BUF_DISABLE   0                          /*!< I2C master doesn't need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE   0                          /*!< I2C master doesn't need buffer */
-#define I2C_MASTER_TIMEOUT_MS       1000
+#define I2C_MASTER_TIMEOUT_MS       1
 
 #define ADS1115_TANK_SENSOR_ADDR                 0x49        /*!< Slave address of the ADS1115 sensor */
 #define TANK_SENSOR_ALERT_GPIO           GPIO_NUM_33
@@ -71,11 +71,16 @@ class Sensors
         static float     getTemp(ENGINE_e engine, PROBE_e probe);
         static float     getFuel(ENGINE_e engine, PROBE_e probe);
 
+        static bool isTempSensorConnected(void);
+        static bool isFuelSensorConnected(void);
+
     private:
         static float     ads_read(uint8_t dev_addr, uint8_t ads_channl, gpio_num_t alert_pin);
 
         static esp_err_t ads1115_register_read(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, size_t len);
         static esp_err_t ads1115_register_write_byte(uint8_t dev_addr, uint8_t reg_addr, uint16_t data);
+
+        static esp_err_t _fuel_sensor_state, _temp_sensor_state;
 };
 
 #endif

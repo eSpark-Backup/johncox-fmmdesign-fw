@@ -311,13 +311,14 @@ void Device::insertHardCodeValues()
 
     fuel_burned += 1.4;
 }
+
 // Function to insert sensor values into tables
 void Device::insertSensorValues()
 {
     // Get current time in microseconds to use as a seed
     uint64_t seed = esp_timer_get_time();
     static float fuel_burned = 1.0;
-    float fuel_factor = 1;          // fuel conversion
+    float fuel_factor = 1;          // fuel conversion factor
     float vol_factor = 1;           // tank volumetric capacity
 
 
@@ -333,18 +334,37 @@ void Device::insertSensorValues()
 
     // Initialize random number generator with the seed
     std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
+    std::uniform_real_distribution<float> fuelDistribution(1, 100.0);
+    std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
     // ESP_LOGW(TAG, "================");
     for (int i = 1; i <= 2; i++)
     // for (int i = 1; i <= 2; ++i)
     {
+        float fuel, temp1, temp2;
+        if(Sensors::isFuelSensorConnected())
+            fuel = Sensors::getFuel((ENGINE_e)i, PROBE_1);
+        else
+            fuel = fuelDistribution(gen);
+
+        if(Sensors::isTempSensorConnected())
+        {
+            temp1 = Sensors::getTemp((ENGINE_e)i, PROBE_1);
+            temp2 = Sensors::getTemp((ENGINE_e)i, PROBE_2);
+        }
+        else
+        {
+            temp1 = temperatureDistribution(gen);
+            temp2 = temperatureDistribution(gen);
+        }
+        
         std::map<std::string, std::string> sensorData = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"timestamp_unix", std::to_string(seed)},
-            {"fuel", std::to_string(Sensors::getFuel((ENGINE_e)i, PROBE_1))},
-            {"temperature_supply", std::to_string(Sensors::getTemp((ENGINE_e)i, PROBE_1))},
-            {"temperature_return", std::to_string(Sensors::getTemp((ENGINE_e)i, PROBE_2))}
+            {"fuel", std::to_string(fuel)},
+            {"temperature_supply", std::to_string(temp1)},
+            {"temperature_return", std::to_string(temp2)}
         };
         // printf("sensorData:\n");
         // for (const auto& pair : sensorData) {
@@ -352,8 +372,7 @@ void Device::insertSensorValues()
         // }
         dbPtr.insert("SensorData", sensorData);
         
-        // Insert random data into FuelManagement table
-        float fuel = Sensors::getFuel((ENGINE_e)i, PROBE_1);
+
         std::map<std::string, std::string> fuelManagement = {
             {"engine_id", (i % 2 == 0) ? "1" : "2"},
             {"total_fuel_burned", std::to_string((100-fuel) * fuel_factor)},
