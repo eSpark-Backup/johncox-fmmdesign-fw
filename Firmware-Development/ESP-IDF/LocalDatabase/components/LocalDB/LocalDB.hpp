@@ -11,10 +11,10 @@
 class LocalDB 
 {
 public:
-    static LocalDB& getInstance(const char *filename = "/spiffs/test");
+    static LocalDB& getInstance(const char *filename = "/test");
     ~LocalDB();
 
-    void init();
+    void init(const char *mountPath);
     bool open();
     void close();
     void createTable(const char *tableName, const char *columns);
@@ -50,5 +50,6 @@ private:
 };
 
 void testDatabases();
+const char* concatenateFilePath(const char* base, const char* filename);
 
 #endif /* LOCAL_DB_H */

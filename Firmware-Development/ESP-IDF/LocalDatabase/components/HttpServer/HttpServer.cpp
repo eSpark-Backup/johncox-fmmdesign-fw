@@ -14,7 +14,7 @@
 
 #define STACK_SIZE (5 * 1024)
 
-static const char *TAG = "HTTPS_SERVER";
+static const char *TAG = "http_server";
 static const size_t max_clients = 4;
 
 httpd_handle_t HttpServer::serverHandle = NULL;
@@ -44,8 +44,6 @@ void HttpServer::init(char* (*callback)(void))
 {
     BaseType_t xReturned;
 
-    /* Create the task, storing the handle. */
-    // xReturned = xTaskCreate(
     xReturned = xTaskCreatePinnedToCore(
                     wssServerTask,          /* Function that implements the task. */
                     "websocketTask",        /* Text name for the task. */
@@ -153,7 +151,6 @@ esp_err_t HttpServer::startServer(void * args)
     else
     {
         ESP_LOGE(TAG, "Failed to start HTTP Server, error code: %d / %s", ret, esp_err_to_name(ret));
-        // ESP_LOGE(TAG, "Failed to start server, error code: %d", ret);
     }
     return ret;
 }

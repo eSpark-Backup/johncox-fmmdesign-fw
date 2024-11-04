@@ -21,19 +21,8 @@
 
 static const char *TAG = "app_main";
 
-#define STACK_SIZE (10 * 1024)
 #define TEST_WITHOUT_APP 0
 
-void vTaskCode(void * pvParameters)
-{
-  configASSERT( ( ( uint32_t ) pvParameters ) == 1 );
-
-    for( ;; )
-    {
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
-        Device::insertSensorValues();
-    }
-}
 
 extern "C" void app_main() 
 {
@@ -73,22 +62,11 @@ extern "C" void app_main()
     UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
     userMan.createUser(credentials.first, credentials.second);
 
-    BaseType_t xReturned;
-    TaskHandle_t xHandle = NULL;
-
-    /* Create the task, storing the handle. */
-    xReturned = xTaskCreate(
-                    vTaskCode,       /* Function that implements the task. */
-                    "insertSensorValues",          /* Text name for the task. */
-                    STACK_SIZE,      /* Stack size in words, not bytes. */
-                    ( void * ) 1,    /* Parameter passed into the task. */
-                    5,               /* Priority at which the task is created. */
-                    &xHandle );      /* Used to pass out the created task's handle. */
-
+    Device::startDataAcquisition();
     HttpServer::init(Device::getData);
 
-    while(true) {
-      // taskYIELD();
+    while(true)
+    {
       vTaskDelay(portMAX_DELAY);
     }
 }

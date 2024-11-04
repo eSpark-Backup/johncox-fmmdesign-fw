@@ -1,3 +1,6 @@
 idf_component_register(SRCS "Storage.cpp"
                     INCLUDE_DIRS "."
-                    REQUIRES spiffs)
+                    REQUIRES spiffs
+                             fatfs
+                             sdmmc  )
+

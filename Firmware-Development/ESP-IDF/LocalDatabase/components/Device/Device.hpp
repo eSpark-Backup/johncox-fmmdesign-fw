@@ -9,7 +9,8 @@
 #include <esp_err.h>
 #include "LocalDB.hpp"
 
-static const char* filename = "/spiffs/test";
+
+static const char* filename = "/test";
 
 typedef struct
 {
@@ -23,6 +24,7 @@ class Device
         static LocalDB& dbPtr;
         static std::string username;
         static std::string password;
+        static TaskHandle_t xHandle;
         static std::pair<std::string, std::string> generateCredentials();
         static void createTables(LocalDB& db);
         
@@ -30,6 +32,7 @@ class Device
         static void insertRandomValues(LocalDB& db);
         static void insertHardCodeValues();
         static void insertSensorValues();
+        static void startDataAcquisition();
         static char* getData();
         static std::pair<std::string, std::string> getCredentials();
         static void init();

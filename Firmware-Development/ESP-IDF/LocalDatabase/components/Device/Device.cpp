@@ -9,11 +9,15 @@
 #include "LocalDB.hpp"
 #include "DeviceStorage.hpp"
 #include "Sensors.hpp"
+#include "Storage.hpp"
+
+#define STACK_SIZE (10 * 1024)
 
 static const char* TAG = "Device";
 
 std::string Device::username;
 std::string Device::password;
+TaskHandle_t Device::xHandle = NULL;
 LocalDB& Device::dbPtr = LocalDB::getInstance(filename);
 
 char* enginePosition[] = {"Port",
@@ -399,15 +403,41 @@ void Device::insertSensorValues()
     fuel_burned += 1.4;
 }
 
+void acquireSensorData(void * pvParameters)
+{
+//   configASSERT( ( ( uint32_t ) pvParameters ) == NULL );
+
+    for( ;; )
+    {
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        Device::insertSensorValues();
+    }
+}
+
+void Device::startDataAcquisition()
+{
+    BaseType_t err = xTaskCreate(
+                    acquireSensorData,              /* Function that implements the task. */
+                    "insertSensorValues",           /* Text name for the task. */
+                    STACK_SIZE,                     /* Stack size in words, not bytes. */
+                    ( void * ) NULL,                /* Parameter passed into the task. */
+                    5,                              /* Priority at which the task is created. */
+                    &Device::xHandle );             /* Used to pass out the created task's handle. */
+
+    if(pdPASS  == err)
+    {
+        ESP_LOGI(TAG, "DataAcquisition task created.");
+    }
+    else
+    {
+        ESP_LOGE(TAG, "Failed to allocate memory for DataAcquisition task.");
+    }
+}
+
 void Device::init() 
 {
-    // static const char* filename = "/spiffs/test";
-    // LocalDB& db = LocalDB::getInstance(filename);
-    // dbPtr = &db;
-
-    dbPtr.init();
-
-    unlink(filename);
+    dbPtr.init(Storage::MOUNT_POINT);
+    // Storage::storageStats();
 
     if (!dbPtr.open()) 
     {

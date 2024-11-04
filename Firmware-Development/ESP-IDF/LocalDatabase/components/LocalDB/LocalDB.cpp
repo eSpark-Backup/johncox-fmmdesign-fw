@@ -4,6 +4,8 @@
 #include "esp_timer.h"
 #include "esp_spiffs.h"
 #include "LocalDB.hpp"
+#include <cstring>
+#include "Storage.hpp"
 
 static const char *TAG = "LocalDB";
 
@@ -11,8 +13,10 @@ static int searchCallback(void* data, int argc, char** argv, char** azColName);
 
 LocalDB* LocalDB::instance = nullptr;
 
-LocalDB::LocalDB(const char *filename) : filename(filename), db(nullptr) {
-        mutex = xSemaphoreCreateMutex();
+LocalDB::LocalDB(const char *filename)
+: filename(filename), db(nullptr)
+{
+    mutex = xSemaphoreCreateMutex();
 }
 
 LocalDB::~LocalDB() 
@@ -33,12 +37,14 @@ LocalDB& LocalDB::getInstance(const char *filename)
     return *instance;
 }
 
-void LocalDB::init() 
+void LocalDB::init(const char *mountPath) 
 {
+    filename = concatenateFilePath(mountPath, filename);
+    unlink(filename);
     sqlite3_initialize();
 }
 
-bool LocalDB::open() 
+bool LocalDB::open()
 {
     close();
     int64_t start = esp_timer_get_time();
@@ -85,16 +91,7 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
         if (rc != SQLITE_OK) 
         {
             ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
-            size_t total = 0, used = 0;
-            esp_err_t ret = esp_spiffs_info(NULL, &total, &used);
-            if (ret != ESP_OK) 
-            {
-                ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
-            } 
-            else 
-            {
-                ESP_LOGW(TAG, "Partition size: total: %d, used: %d", total, used);
-            }
+            Storage::storageStats();
             sqlite3_free(zErrMsg);
         } 
         else 
@@ -274,4 +271,18 @@ int printCallback(void *data, int argc, char **argv, char **azColName)
     }
     printf("\n");
     return 0;
+}
+
+const char* concatenateFilePath(const char* base, const char* filename)
+{
+    if((filename == NULL))
+        return "invalid FileName";
+    if((base == NULL))
+        return "invalid Base";
+
+    int pathLen = strlen(base) + strlen(filename) + 1;
+    char* path = (char *)malloc(pathLen);
+    memset(path, 0, pathLen);
+    snprintf(path, pathLen, "%s%s", base, filename);
+    return path;
 }
