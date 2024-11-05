@@ -62,7 +62,7 @@ extern "C" void app_main()
     UserCredentialsManager& userMan = UserCredentialsManager::getInstance();
     userMan.createUser(credentials.first, credentials.second);
 
-    Device::startDataAcquisition();
+    Device::startDataAcquisitionTask();
     HttpServer::init(Device::getData);
 
     while(true)

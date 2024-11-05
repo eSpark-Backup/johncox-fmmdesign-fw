@@ -21,15 +21,17 @@ class Storage
     public:
         static void init();
         static void deinit();
-        static esp_err_t mountNAND();
-        static esp_err_t mountSpiffs();
         static void storageStats();
 
         static const char *MOUNT_POINT;
 
     private:
+        static esp_err_t mountNAND();
+        static esp_err_t mountSpiffs();
+        
         static const char *TAG;
         static sdmmc_card_t *card;
+        static sdmmc_host_t  spiHost;
 };
 
 #endif /* STORAGE_H */

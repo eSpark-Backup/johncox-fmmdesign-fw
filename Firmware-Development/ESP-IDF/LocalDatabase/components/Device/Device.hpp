@@ -9,14 +9,17 @@
 #include <esp_err.h>
 #include "LocalDB.hpp"
 
+#define SENSOR_DATA_ACQUIRE_TIME    5000
 
-static const char* filename = "/test";
+#define FILENAME "/test"
 
 typedef struct
 {
     std::map<std::string, std::string> engineData;
     std::map<std::string, std::map<std::string, std::string>> tablesData;
 }engine_t;
+
+void acquireSensorData(void * pvParameters);
 
 class Device 
 {
@@ -26,13 +29,16 @@ class Device
         static std::string password;
         static TaskHandle_t xHandle;
         static std::pair<std::string, std::string> generateCredentials();
-        static void createTables(LocalDB& db);
+        static void createTables();
+        static void initDBTables();
+        static void createDataAcquisitionTask();
         
     public:
         static void insertRandomValues(LocalDB& db);
         static void insertHardCodeValues();
         static void insertSensorValues();
-        static void startDataAcquisition();
+        static void startDataAcquisitionTask();
+        static void suspendDataAcquisitionTask();
         static char* getData();
         static std::pair<std::string, std::string> getCredentials();
         static void init();

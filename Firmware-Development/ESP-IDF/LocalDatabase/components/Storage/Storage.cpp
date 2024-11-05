@@ -11,6 +11,7 @@
 const char *Storage::TAG = "Storage";
 const char *Storage::MOUNT_POINT = nullptr;
 sdmmc_card_t *Storage::card = nullptr;
+sdmmc_host_t Storage::spiHost;
 
 void Storage::init() 
 {
@@ -32,8 +33,17 @@ void Storage::init()
 
 void Storage::deinit()
 {
-    esp_vfs_spiffs_unregister(nullptr);
-    ESP_LOGI(TAG, "SPIFFS unmounted");
+    if(strcmp(MOUNT_POINT, MOUNT_POINT_NAND) == 0)
+    {
+        esp_vfs_fat_sdcard_unmount(MOUNT_POINT_NAND, card);
+        spi_bus_free((spi_host_device_t)spiHost.slot);
+        ESP_LOGI(TAG, "NAND unmounted and SPI bus deinitialized.");
+    }
+    else
+    {
+        esp_vfs_spiffs_unregister(nullptr);
+        ESP_LOGI(TAG, "SPIFFS unmounted.");
+    }
 }
 
 esp_err_t Storage::mountNAND()
@@ -56,7 +66,8 @@ esp_err_t Storage::mountNAND()
     // Please check its source code and implement error recovery when developing
     // production applications.  
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    host.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
+    spiHost = host;//SDSPI_HOST_DEFAULT();
+    spiHost.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = NAND_MOSI,
         .miso_io_num = NAND_MISO,
@@ -65,7 +76,7 @@ esp_err_t Storage::mountNAND()
         .quadhd_io_num = -1,
         .max_transfer_sz = 4000,
     };
-    ret = spi_bus_initialize((spi_host_device_t)host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
+    ret = spi_bus_initialize((spi_host_device_t)spiHost.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to initialize bus.");
         return ret;
@@ -75,10 +86,10 @@ esp_err_t Storage::mountNAND()
     // Modify slot_config.gpio_cd and slot_config.gpio_wp if your board has these signals.
     sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
     slot_config.gpio_cs = NAND_CS;
-    slot_config.host_id = (spi_host_device_t)host.slot;
+    slot_config.host_id = (spi_host_device_t)spiHost.slot;
 
     ESP_LOGI(TAG, "Mounting filesystem");
-    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT_NAND, &host, &slot_config, &mount_config, &card);
+    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT_NAND, &spiHost, &slot_config, &mount_config, &card);
 
     if (ret != ESP_OK) {
         if (ret == ESP_FAIL) {
@@ -87,7 +98,7 @@ esp_err_t Storage::mountNAND()
             ESP_LOGE(TAG, "Failed to initialize the card (%s).\n"
                      "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
         }
-        spi_bus_free((spi_host_device_t)host.slot);
+        spi_bus_free((spi_host_device_t)spiHost.slot);
         ESP_LOGW(TAG, "SPI bus deinitialized.");
         return ret;
     }

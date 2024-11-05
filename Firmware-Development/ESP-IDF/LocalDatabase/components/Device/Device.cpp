@@ -18,22 +18,22 @@ static const char* TAG = "Device";
 std::string Device::username;
 std::string Device::password;
 TaskHandle_t Device::xHandle = NULL;
-LocalDB& Device::dbPtr = LocalDB::getInstance(filename);
+LocalDB& Device::dbPtr = LocalDB::getInstance(FILENAME);
 
-char* enginePosition[] = {"Port",
-                          "Starboard",
-                          "Keel",
-                          "Port1",
-                          "Port2",
-                          "Starboard3",
-                          "Starboard4",
-                          "Genset1",
-                          "Genset2"     };
-char* engineFuelType[] = {"Gasoline",
-                          "Diesel",
-                          "Biodiesel"   };
-char* engineType[] =     {"Drive Engine",
-                          "Generator"   };
+const char* enginePosition[] = {"Port",
+                                "Starboard",
+                                "Keel",
+                                "Port1",
+                                "Port2",
+                                "Starboard3",
+                                "Starboard4",
+                                "Genset1",
+                                "Genset2"     };
+const char* engineFuelType[] = {"Gasoline",
+                                "Diesel",
+                                "Biodiesel"   };
+const char* engineType[] =     {"Drive Engine",
+                                "Generator"   };
 
 std::pair<std::string, std::string> Device::generateCredentials() 
 {
@@ -161,25 +161,25 @@ char* Device::getData()
 }
 
 // Function to create tables
-void Device::createTables(LocalDB& db)
+void Device::createTables()
 {
     // Create SensorData table
-    db.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
+    dbPtr.createTable("SensorData", "id INTEGER PRIMARY KEY NOT NULL, "
                                   "engine_id INTEGER NOT NULL, "
                                   "timestamp_unix INTEGER NOT NULL, "
-                                  "fuel FLOAT NOT NULL, "
                                   "temperature_supply FLOAT NOT NULL, "
                                   "temperature_return FLOAT NOT NULL");
 
     // Create FuelManagement table
-    db.createTable("FuelManagement", "id INTEGER PRIMARY KEY NOT NULL, "
+    dbPtr.createTable("FuelManagement", "id INTEGER PRIMARY KEY NOT NULL, "
                                       "engine_id INTEGER NOT NULL, "
                                       "total_fuel_burned INTEGER NOT NULL, "
                                       "remaining_fuel INTEGER NOT NULL, "
+                                      "current_fuel_consumption INTEGER NOT NULL, "
                                       "distance_to_empty INTEGER NOT NULL");
 
     // Create Engines table
-    db.createTable("Engines", "id TINYINT PRIMARY KEY NOT NULL, "
+    dbPtr.createTable("Engines", "id TINYINT PRIMARY KEY NOT NULL, "
                               "name TEXT, "
                               "enabled BOOLEAN NOT NULL, "
                               "engine_type TEXT, "
@@ -188,14 +188,37 @@ void Device::createTables(LocalDB& db)
                               "volume_per_cycle FLOAT");
 
     // Create Vessel table
-    db.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
-                             "speed FLOAT NOT NULL");
+    dbPtr.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
+                             "speed FLOAT NOT NULL, "
+                             "tank1_fuel FLOAT NOT NULL, "
+                             "tank2_fuel FLOAT NOT NULL, "
+                             "tank3_fuel FLOAT NOT NULL, "
+                             "tank4_fuel FLOAT NOT NULL");
 
     // Create UserCredentials table
-    db.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
+    dbPtr.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
                                       "username TEXT NOT NULL,"
                                       "password TEXT NOT NULL");
+}
 
+void Device::initDBTables()
+{
+    for (int i = 1; i <= 2; ++i) 
+    {
+        // Insert data into Engines table
+        std::map<std::string, std::string> enginesData = {
+            {"id", std::to_string(i)},
+            {"name", "Engine M" + std::to_string(i)},
+            {"engine_type", std::string(engineType[i-1])}, // Replace with appropriate engine type
+            {"fuel_type", std::string(engineFuelType[i])},   // Replace with appropriate fuel type
+            {"volume_per_cycle", std::to_string(i * 0.5)}, // Replace with appropriate volume per cycle
+            {"enabled", std::to_string(1)},
+            // {"enabled", std::to_string(i % 2)},
+            {"position", std::string(enginePosition[i*2])} // Replace with appropriate volume per cycle
+            // {"position", "P" + std::to_string(i * 0.5)} // Replace with appropriate volume per cycle
+        };
+        dbPtr.insert("Engines", enginesData);
+    }
 }
 
 // Function to insert random values into tables
@@ -321,20 +344,10 @@ void Device::insertSensorValues()
 {
     // Get current time in microseconds to use as a seed
     uint64_t seed = esp_timer_get_time();
-    static float fuel_burned = 1.0;
-    float fuel_factor = 1;          // fuel conversion factor
-    float vol_factor = 1;           // tank volumetric capacity
+    static float fuel_burned[ENGINE_MAX] = {0.0f};
+    float fuel_factor = 1;      // set it to suitable volumetric value depending on tank
 
-
-    // std::vector<std::map<std::string, std::string>> fuel_type = dbPtr.search("Engines", {"fuel_type"}, {});
-
-    // for (const auto& type : fuel_type) 
-    // {
-    //     std::map<std::string, std::string> fuelType = type;
-    //     if (fuelType.at("fuel_type") == "Gasoline")          {     fuel_factor = ;   }
-    //     else if (fuelType.at("fuel_type") == "Diesel")       {     fuel_factor = ;   }
-    //     else if (fuelType.at("fuel_type") == "Biodiesel")    {     fuel_factor = ;   }
-    // }
+    // Storage::storageStats();
 
     // Initialize random number generator with the seed
     std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
@@ -342,65 +355,92 @@ void Device::insertSensorValues()
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
+    auto fetchFlowData = [](ENGINE_e engine, PROBE_e probe)
+    {
+        float val;
+        val = Sensors::getFlow(engine, probe);
+        return val;
+    };
+
+    auto fetchFuelData = [&](TANK_e tank) // Capture by reference
+    {
+        float val;
+        if (Sensors::isFuelSensorConnected())
+            val = Sensors::getFuel(tank);
+        else
+            val = fuelDistribution(gen);
+        return val;
+    };
+
+    auto fetchTempData = [&](ENGINE_e engine, PROBE_e probe)
+    {
+        float val;
+        if (Sensors::isTempSensorConnected())
+            val = Sensors::getTemp(engine, probe);
+        else
+            val = temperatureDistribution(gen);
+        return val;
+    };
+
+    auto fetchSpeedData = [&]()
+    {
+        float val;
+        if (Sensors::isNMEA200BUSAvailable())
+            // val = Sensors::getSpeed();       // Implement speed fetching sequence from NMEA200 bus
+            asm volatile ("nop"::);
+        else
+            val = speedDistribution(gen);
+        return val;
+    };
+
+    float tankData[ENGINE_MAX*2] = {0};
+    float remainingFuel = 0;
+    for(int i=0; i<(ENGINE_MAX*2); i++)
+    {
+        tankData[(TANK_e)i] = fetchFuelData((TANK_e)i) * fuel_factor;
+        remainingFuel += tankData[(TANK_e)i];
+    }
+    float vesselSpeed = fetchSpeedData();
+
     // ESP_LOGW(TAG, "================");
     for (int i = 1; i <= 2; i++)
-    // for (int i = 1; i <= 2; ++i)
     {
-        float fuel, temp1, temp2;
-        if(Sensors::isFuelSensorConnected())
-            fuel = Sensors::getFuel((ENGINE_e)i, PROBE_1);
-        else
-            fuel = fuelDistribution(gen);
+        float currentFuelConsumption = fetchFlowData((ENGINE_e)(i-1), SUPPLY_FLOW) - fetchFlowData((ENGINE_e)(i-1), RETURN_FLOW);
+        fuel_burned[i-1] += (currentFuelConsumption*((SENSOR_DATA_ACQUIRE_TIME/1000.0f)/60.0f));
 
-        if(Sensors::isTempSensorConnected())
-        {
-            temp1 = Sensors::getTemp((ENGINE_e)i, PROBE_1);
-            temp2 = Sensors::getTemp((ENGINE_e)i, PROBE_2);
-        }
-        else
-        {
-            temp1 = temperatureDistribution(gen);
-            temp2 = temperatureDistribution(gen);
-        }
-        
         std::map<std::string, std::string> sensorData = {
-            {"engine_id", (i % 2 == 0) ? "1" : "2"},
-            {"timestamp_unix", std::to_string(seed)},
-            {"fuel", std::to_string(fuel)},
-            {"temperature_supply", std::to_string(temp1)},
-            {"temperature_return", std::to_string(temp2)}
+            {"engine_id",          std::to_string(i)},
+            {"timestamp_unix",     std::to_string(seed)},
+            {"temperature_supply", std::to_string(fetchTempData((ENGINE_e)(i-1), PROBE_1))},
+            {"temperature_return", std::to_string(fetchTempData((ENGINE_e)(i-1), PROBE_2))},
         };
-        // printf("sensorData:\n");
-        // for (const auto& pair : sensorData) {
-        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
-        // }
         dbPtr.insert("SensorData", sensorData);
         
 
         std::map<std::string, std::string> fuelManagement = {
-            {"engine_id", (i % 2 == 0) ? "1" : "2"},
-            {"total_fuel_burned", std::to_string((100-fuel) * fuel_factor)},
-            {"remaining_fuel", std::to_string(fuel * vol_factor)},
-            {"distance_to_empty", std::to_string(i * (200 - (fuel_burned/2)))}
+            {"engine_id",          std::to_string(i)},
+            {"total_fuel_burned",  std::to_string(fuel_burned[i-1])},
+            {"remaining_fuel",     std::to_string(remainingFuel)},
+            {"current_fuel_consumption",     std::to_string(currentFuelConsumption)},
+            {"distance_to_empty",  std::to_string(vesselSpeed*((remainingFuel/currentFuelConsumption)/60))},        // in Km
         };
-        // printf("fuelManagement:\n");
-        // for (const auto& pair : fuelManagement) {
-        //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
-        // }
         dbPtr.insert("FuelManagement", fuelManagement);
     }
 
     // Insert data into Vessel table
     std::map<std::string, std::string> VesselData = {
-        {"speed", std::to_string(speedDistribution(gen))},
+        {"speed", std::to_string(vesselSpeed)},
+        {"tank1_fuel", std::to_string(tankData[TANK_1])},
+        {"tank2_fuel", std::to_string(tankData[TANK_2])},
+        {"tank3_fuel", std::to_string(tankData[TANK_3])},
+        {"tank4_fuel", std::to_string(tankData[TANK_4])},
     };
     dbPtr.insert("Vessel", VesselData);
+
     // printf("Vessel:\n");
     // for (const auto& pair : VesselData) {
     //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
     // }
-
-    fuel_burned += 1.4;
 }
 
 void acquireSensorData(void * pvParameters)
@@ -409,12 +449,26 @@ void acquireSensorData(void * pvParameters)
 
     for( ;; )
     {
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(SENSOR_DATA_ACQUIRE_TIME / portTICK_PERIOD_MS);
         Device::insertSensorValues();
     }
 }
 
-void Device::startDataAcquisition()
+void Device::startDataAcquisitionTask()
+{
+    vTaskResume(Device::xHandle);
+    Sensors::startFlowRateTask();
+    ESP_LOGI(TAG, "DataAcquisition task started.");
+}
+
+void Device::suspendDataAcquisitionTask()
+{
+    vTaskSuspend(Device::xHandle);
+    Sensors::suspendFlowRateTask();
+    ESP_LOGI(TAG, "DataAcquisition task suspended.");
+}
+
+void Device::createDataAcquisitionTask()
 {
     BaseType_t err = xTaskCreate(
                     acquireSensorData,              /* Function that implements the task. */
@@ -423,7 +477,6 @@ void Device::startDataAcquisition()
                     ( void * ) NULL,                /* Parameter passed into the task. */
                     5,                              /* Priority at which the task is created. */
                     &Device::xHandle );             /* Used to pass out the created task's handle. */
-
     if(pdPASS  == err)
     {
         ESP_LOGI(TAG, "DataAcquisition task created.");
@@ -432,6 +485,9 @@ void Device::startDataAcquisition()
     {
         ESP_LOGE(TAG, "Failed to allocate memory for DataAcquisition task.");
     }
+    
+    suspendDataAcquisitionTask();
+    
 }
 
 void Device::init() 
@@ -444,9 +500,12 @@ void Device::init()
         return;
     }
 
-    createTables(dbPtr);
-    insertRandomValues(dbPtr);
+    createTables();
+    initDBTables();
+    // insertRandomValues(dbPtr);
     // insertHardCodeValues();
+
+    createDataAcquisitionTask();
 
     // db.remove("SensorData");
 

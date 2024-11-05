@@ -3,7 +3,6 @@
 
 #include <map>
 #include <vector>
-// #include <mutex>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <sqlite3.h>
