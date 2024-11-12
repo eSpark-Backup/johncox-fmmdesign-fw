@@ -36,7 +36,7 @@ extern "C" void app_main()
     
     Storage::init();        // Initializing storage (SPIFF/NAND)
     Device::init();         // Initializing database (and inserting values)
-    Sensors::sensorsInit();
+    Sensors::init();
 
     DeviceProvisioning devProv;
 
@@ -67,6 +67,13 @@ extern "C" void app_main()
 
     while(true)
     {
-      vTaskDelay(portMAX_DELAY);
+      vTaskDelay(5000/portTICK_RATE_MS);
+      uint32_t free_heap = esp_get_free_heap_size();
+      uint32_t watermark_heap = esp_get_minimum_free_heap_size();
+      ESP_LOGI(TAG, "______________________________________");
+      ESP_LOGI(TAG, "Free Heap Size: %d B     %.4f KB", free_heap, free_heap / 1024.0);
+      ESP_LOGI(TAG, "Heap Watermark: %d B     %.4f KB", watermark_heap, watermark_heap / 1024.0);
+      Storage::storageStats();
+      ESP_LOGI(TAG, "``````````````````````````````````````");
     }
 }

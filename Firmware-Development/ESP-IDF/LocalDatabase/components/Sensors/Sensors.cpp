@@ -20,7 +20,7 @@ PCNT_CHANNEL_s Sensors::_flow_sensors[ENGINE_MAX*2] = {
     { .unit = ENGINE2_RETURN_FLOW_UNIT, .gpio = ENGINE2_RETURN_FLOW_GPIO },
 };
 
-esp_err_t Sensors::sensorsInit()
+esp_err_t Sensors::init()
 {
     ESP_LOGI(TAG, "Initializing Sensors.");
 
@@ -253,7 +253,7 @@ void Sensors::flowRateTask(TimerHandle_t handle)
         pcnt_counter_clear(_flow_sensors[i].unit);
         // pushValue(_sensorStacks[i], counts);
         float pulses_per_second = (float)counts / (FLOWSENSOR_READING_PERIOD / 1000.0);
-        _sensorStacks[i] = pulses_per_second * 60.0 * pulseToLiter;
+        _sensorStacks[i] = pulses_per_second * 60.0 * 60.0 * pulseToLiter;              // store value in (litres per hour) unit
         // ESP_LOGW(TAG, "Placed value %d in _sensorStacks[%d]", counts, i);
     }
 }

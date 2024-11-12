@@ -115,29 +115,39 @@ char* Device::getData()
     };
 
     int x = 0;
-    for (const auto& engine : enginesTable) 
+    if(!enginesTable.empty())
     {
-        data[x].engineData = engine;
-        if (data[x].engineData.at("enabled") == "1") {
-            data[x].tablesData["SensorData"] = fetchCombinedDataForTable("SensorData", data[x].engineData.at("id").c_str());
-            data[x].tablesData["FuelManagement"] = fetchCombinedDataForTable("FuelManagement", data[x].engineData.at("id").c_str());
-        }
-        else
+        for (const auto& engine : enginesTable) 
         {
-            std::map<std::string, std::string> emptyMap;
-            data[x].tablesData["SensorData"] = emptyMap;
-            data[x].tablesData["FuelManagement"] = emptyMap;
-            // printf("=====ELSE=====\nno values added.\n");
+            data[x].engineData = engine;
+            if (data[x].engineData.at("enabled") == "1") {
+                data[x].tablesData["SensorData"] = fetchCombinedDataForTable("SensorData", data[x].engineData.at("id").c_str());
+                data[x].tablesData["FuelManagement"] = fetchCombinedDataForTable("FuelManagement", data[x].engineData.at("id").c_str());
+            }
+            else
+            {
+                std::map<std::string, std::string> emptyMap;
+                data[x].tablesData["SensorData"] = emptyMap;
+                data[x].tablesData["FuelManagement"] = emptyMap;
+                // printf("=====ELSE=====\nno values added.\n");
+            }
+            // data[x].engineData.erase("id");
+            x++;
         }
-        // data[x].engineData.erase("id");
-        x++;
     }
-
-    for (const auto& vessel : vesselTable) 
+    else
+        ESP_LOGE(TAG, "enginesTable vector is empty.");
+    
+    if(!vesselTable.empty())
     {
-        vesselTableData = vessel;
-        vesselTableData.erase("id");
+        for (const auto& vessel : vesselTable) 
+        {
+            vesselTableData = vessel;
+            vesselTableData.erase("id");
+        }
     }
+    else
+        ESP_LOGE(TAG, "vesselTable vector is empty.");
 
     // for (int y = 0; y < data.size(); y++) 
     // {
@@ -475,7 +485,7 @@ void Device::createDataAcquisitionTask()
                     "insertSensorValues",           /* Text name for the task. */
                     STACK_SIZE,                     /* Stack size in words, not bytes. */
                     ( void * ) NULL,                /* Parameter passed into the task. */
-                    5,                              /* Priority at which the task is created. */
+                    tskIDLE_PRIORITY+5,             /* Priority at which the task is created. */
                     &Device::xHandle );             /* Used to pass out the created task's handle. */
     if(pdPASS  == err)
     {

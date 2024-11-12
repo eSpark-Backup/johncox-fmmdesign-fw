@@ -31,7 +31,7 @@ struct async_resp_arg {
 };
 
 static const char *TAG = "wss_echo_server";
-static const size_t max_clients = 4;
+static const size_t max_clients = MAX_CLIENTS;
 
 esp_err_t ws_handler(httpd_req_t *req)
 {

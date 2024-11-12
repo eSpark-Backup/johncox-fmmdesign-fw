@@ -1,6 +1,5 @@
 #include <sstream>
 #include <utility>
-#include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_spiffs.h"
 #include "LocalDB.hpp"
@@ -91,6 +90,7 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
         if (rc != SQLITE_OK) 
         {
             ESP_LOGE(TAG, "SQL error: %s", zErrMsg);
+            ESP_LOGW(TAG, "QUERY: %s", sql);
             Storage::storageStats();
             sqlite3_free(zErrMsg);
         } 

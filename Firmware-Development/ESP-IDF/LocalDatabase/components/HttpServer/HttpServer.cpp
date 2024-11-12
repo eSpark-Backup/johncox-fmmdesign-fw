@@ -15,7 +15,7 @@
 #define STACK_SIZE (5 * 1024)
 
 static const char *TAG = "http_server";
-static const size_t max_clients = 4;
+static const size_t max_clients = MAX_CLIENTS;
 
 httpd_handle_t HttpServer::serverHandle = NULL;
 wss_keep_alive_t HttpServer::keepAlive = NULL;
@@ -69,13 +69,14 @@ void HttpServer::start()
 {
     if(isStarted())
     {
+        ESP_LOGW(TAG, "SERVER ALREADY STARTED.");
         return;
     }
 
     #ifndef USE_SECURE_SERVER
     // httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 15;
+    config.max_uri_handlers = (sizeof(uri_handlers)/sizeof(uri_handlers[0]));
     config.max_open_sockets = max_clients;
     config.stack_size = 10240;
 
@@ -102,7 +103,7 @@ void HttpServer::start()
 
     httpd_ssl_config_t config = HTTPD_SSL_CONFIG_DEFAULT();
     config.httpd.ctrl_port = 55555;
-    config.httpd.max_uri_handlers = 15;
+    config.httpd.max_uri_handlers = (sizeof(uri_handlers)/sizeof(uri_handlers[0]));
     config.httpd.max_open_sockets = max_clients;
     config.httpd.global_user_ctx = keepAlive;
     config.httpd.open_fn = wss_open_fd;

@@ -66,14 +66,14 @@ esp_err_t Storage::mountNAND()
     // Please check its source code and implement error recovery when developing
     // production applications.  
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    spiHost = host;//SDSPI_HOST_DEFAULT();
+    spiHost = host;
     spiHost.max_freq_khz = SDMMC_FREQ_HIGHSPEED;
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = NAND_MOSI,
         .miso_io_num = NAND_MISO,
         .sclk_io_num = NAND_CLK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
+        .quadwp_io_num = GPIO_NUM_NC,
+        .quadhd_io_num = GPIO_NUM_NC,
         .max_transfer_sz = 4000,
     };
     ret = spi_bus_initialize((spi_host_device_t)spiHost.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
@@ -177,7 +177,7 @@ void Storage::storageStats()
         uint64_t free_space = fre_sect * 512ULL;
         uint64_t used_space = total_space - free_space;
 
-        ESP_LOGW(TAG, "Partition size: total: %llu MB, used: %llu MB, free: %llu MB", (total_space / (1024 * 1024)), (used_space / (1024 * 1024)), (free_space / (1024 * 1024)));
+        ESP_LOGI(TAG, "Partition size: total: %llu MB, used: %f MB, free: %f MB", (total_space / (1024 * 1024)), (used_space / (1024.0 * 1024.0)), (free_space / (1024.0 * 1024.0)));
     }
     else if(strcmp(MOUNT_POINT, MOUNT_POINT_SPIFFS) == 0)
     {

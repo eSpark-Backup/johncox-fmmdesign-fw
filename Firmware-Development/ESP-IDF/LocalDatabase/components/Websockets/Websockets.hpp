@@ -6,6 +6,8 @@
 #include <esp_https_server.h>
 #include "KeepAlive.hpp"
 
+#define MAX_CLIENTS 4
+
 esp_err_t ws_handler(httpd_req_t *req);
 esp_err_t wss_open_fd(httpd_handle_t hd, int sockfd);
 void wss_close_fd(httpd_handle_t hd, int sockfd);

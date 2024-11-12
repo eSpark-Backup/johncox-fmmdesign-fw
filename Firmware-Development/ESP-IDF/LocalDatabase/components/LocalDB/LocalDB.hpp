@@ -6,6 +6,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <sqlite3.h>
+#include "esp_log.h"
 
 class LocalDB 
 {
@@ -39,12 +40,43 @@ private:
 
     // Lock the mutex
     bool lock(TickType_t xTicksToWait = portMAX_DELAY) {
-        return xSemaphoreTake(mutex, xTicksToWait) == pdTRUE;
+        BaseType_t err = pdFALSE;
+        if(mutex)
+            err = xSemaphoreTake(mutex, xTicksToWait);
+        else
+            return err;
+
+        TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
+        const char *taskName = pcTaskGetTaskName(currentTask);
+        if(err == pdTRUE)
+        {
+            ESP_LOGD("MUTEX LOCK", "Mutex locked by task: %s.", taskName);
+        }
+        else
+        {
+            ESP_LOGD("MUTEX LOCK", "Task: %s failed to lock Mutex.", taskName);
+        }
+        return (err == pdTRUE);
     }
 
     // Unlock the mutex
     void unlock() {
-        xSemaphoreGive(mutex);
+        BaseType_t err = pdFALSE;
+        if(mutex)
+            err = xSemaphoreGive(mutex);
+        else
+            return;
+
+        TaskHandle_t currentTask = xTaskGetCurrentTaskHandle();
+        const char *taskName = pcTaskGetTaskName(currentTask);
+        if(err == pdTRUE)
+        {
+            ESP_LOGD("MUTEX UNLOCK", "Mutex Unlocked by task: %s.", taskName);
+        }
+        else
+        {
+            ESP_LOGD("MUTEX UNLOCK", "Task: %s failed to unlock Mutex.", taskName);
+        }
     }
 };
 

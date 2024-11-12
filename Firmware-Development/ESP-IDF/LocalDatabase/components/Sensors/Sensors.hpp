@@ -132,7 +132,7 @@ typedef struct
 class Sensors
 {
     public:
-        static esp_err_t sensorsInit(void);
+        static esp_err_t init(void);
         static float     getTemp(ENGINE_e engine, PROBE_e probe);
         static float     getFuel(TANK_e tank);
         static float     getFlow(ENGINE_e engine, PROBE_e flow);
