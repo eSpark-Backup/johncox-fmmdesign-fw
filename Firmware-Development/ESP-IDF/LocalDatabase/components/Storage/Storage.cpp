@@ -15,20 +15,17 @@ sdmmc_host_t Storage::spiHost;
 
 void Storage::init() 
 {
-        esp_err_t ret;
-
-    ret = mountNAND();
-    if (ret != ESP_OK) 
+    if (mountNAND() != ESP_OK) 
     {
-        MOUNT_POINT = MOUNT_POINT_SPIFFS;
         ESP_LOGE(TAG, "FAILED TO MOUNT NAND FLASH, SWITCHING TO SPIFFS.");
-        mountSpiffs();
+        if (mountSpiffs() != ESP_OK) 
+        {
+            return;
+        }
     }
-    else
-    {
-        MOUNT_POINT = MOUNT_POINT_NAND;
-    }
+
     ESP_LOGW(TAG, "mount point is (%s)", MOUNT_POINT);
+    storageStats();
 }
 
 void Storage::deinit()
@@ -39,11 +36,12 @@ void Storage::deinit()
         spi_bus_free((spi_host_device_t)spiHost.slot);
         ESP_LOGI(TAG, "NAND unmounted and SPI bus deinitialized.");
     }
-    else
+    else if(strcmp(MOUNT_POINT, MOUNT_POINT_SPIFFS) == 0)
     {
         esp_vfs_spiffs_unregister(nullptr);
         ESP_LOGI(TAG, "SPIFFS unmounted.");
     }
+    MOUNT_POINT = NULL;
 }
 
 esp_err_t Storage::mountNAND()
@@ -100,11 +98,13 @@ esp_err_t Storage::mountNAND()
         }
         spi_bus_free((spi_host_device_t)spiHost.slot);
         ESP_LOGW(TAG, "SPI bus deinitialized.");
+        MOUNT_POINT = NULL;
         return ret;
     }
     ESP_LOGI(TAG, "Filesystem mounted");
 
     sdmmc_card_print_info(stdout, card);
+    MOUNT_POINT = MOUNT_POINT_NAND;
 
     return ret;
 }
@@ -141,7 +141,10 @@ esp_err_t Storage::mountSpiffs()
         {
             ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
         }
+        MOUNT_POINT = NULL;
+        return ret;
     }
+    MOUNT_POINT = MOUNT_POINT_SPIFFS;
 
     size_t total = 0, used = 0;
     ret = esp_spiffs_info(NULL, &total, &used);
@@ -159,7 +162,11 @@ esp_err_t Storage::mountSpiffs()
 
 void Storage::storageStats()
 {
-    if(strcmp(MOUNT_POINT, MOUNT_POINT_NAND) == 0)
+    if(MOUNT_POINT == NULL)
+    {
+        ESP_LOGE(TAG, "Storage not initialized.");
+    }
+    else if(strcmp(MOUNT_POINT, MOUNT_POINT_NAND) == 0)
     {
         FATFS* fs;
         DWORD fre_clust, fre_sect, tot_sect;

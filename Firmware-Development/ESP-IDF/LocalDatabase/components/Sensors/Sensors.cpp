@@ -7,8 +7,8 @@
 
 static const char* TAG = "Sensors";
 
-esp_err_t Sensors::_fuel_sensor_state = ESP_OK;
-esp_err_t Sensors::_temp_sensor_state = ESP_OK;
+esp_err_t Sensors::_fuel_sensor_state = ESP_FAIL;
+esp_err_t Sensors::_temp_sensor_state = ESP_FAIL;
 esp_err_t Sensors::_is_NMEA200_available = ESP_FAIL;
 
 TimerHandle_t Sensors::_xHandle = NULL;

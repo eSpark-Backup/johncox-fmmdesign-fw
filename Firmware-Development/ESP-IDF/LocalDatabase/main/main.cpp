@@ -21,6 +21,9 @@
 
 static const char *TAG = "app_main";
 
+#define CRITICAL_HEAP_VAL   10
+#define REPORTING_TIME   20000
+#define HEAP_CHECK_TIME  500
 #define TEST_WITHOUT_APP 0
 
 
@@ -35,8 +38,8 @@ extern "C" void app_main()
     ESP_ERROR_CHECK(ret);
     
     Storage::init();        // Initializing storage (SPIFF/NAND)
-    Device::init();         // Initializing database (and inserting values)
     Sensors::init();
+    Device::init();         // Initializing database (and inserting values)
 
     DeviceProvisioning devProv;
 
@@ -65,15 +68,39 @@ extern "C" void app_main()
     Device::startDataAcquisitionTask();
     HttpServer::init(Device::getData);
 
+    uint64_t tick = esp_timer_get_time();
+    uint64_t tickHeap = 0;
+    bool tickFlag = false;
     while(true)
     {
-      vTaskDelay(5000/portTICK_RATE_MS);
+      vTaskDelay(10/portTICK_RATE_MS);
+
       uint32_t free_heap = esp_get_free_heap_size();
       uint32_t watermark_heap = esp_get_minimum_free_heap_size();
-      ESP_LOGI(TAG, "______________________________________");
-      ESP_LOGI(TAG, "Free Heap Size: %d B     %.4f KB", free_heap, free_heap / 1024.0);
-      ESP_LOGI(TAG, "Heap Watermark: %d B     %.4f KB", watermark_heap, watermark_heap / 1024.0);
-      Storage::storageStats();
-      ESP_LOGI(TAG, "``````````````````````````````````````");
+      if((((esp_timer_get_time()-tick)/1000) > REPORTING_TIME))
+      {
+        ESP_LOGI(TAG, "______________________________________");
+        ESP_LOGI(TAG, "Free Heap Size: %d B     %.4f KB", free_heap, free_heap / 1024.0);
+        ESP_LOGI(TAG, "Heap Watermark: %d B     %.4f KB", watermark_heap, watermark_heap / 1024.0);
+        Storage::storageStats();
+        ESP_LOGI(TAG, "``````````````````````````````````````");
+        tick = esp_timer_get_time();
+      }
+
+      if((((esp_timer_get_time()-tickHeap)/1000) > HEAP_CHECK_TIME) && tickFlag)
+      {
+        if((free_heap/1024.0) < CRITICAL_HEAP_VAL)
+        {
+          ESP_LOGE(TAG, "Heap memory too low, restarting device.");
+          esp_restart();
+        }
+        tickFlag = false;
+      }
+
+      if(((free_heap/1024.0) < CRITICAL_HEAP_VAL) && !tickFlag)
+      {
+        tickHeap =esp_timer_get_time();
+        tickFlag = true;
+      }
     }
 }

@@ -19,6 +19,7 @@
 #include "Websockets.hpp"
 #include "LocalDB.hpp"
 #include "Device.hpp"
+#include "cJSON.h"
 
 #if !CONFIG_HTTPD_WS_SUPPORT
 #error This example cannot be used unless HTTPD_WS_SUPPORT is enabled in esp-http-server component configuration
@@ -27,7 +28,8 @@
 struct async_resp_arg {
     httpd_handle_t hd;
     int fd;
-    char* (*dataCallback)(void);
+    char* data;
+    // char* (*dataCallback)(void);
 };
 
 static const char *TAG = "wss_echo_server";
@@ -128,7 +130,7 @@ static const httpd_uri_t ws = {
 static void sendDataWebsocket(void *arg)
 {
     struct async_resp_arg *resp_arg = (struct async_resp_arg*)arg;
-    const char * data = resp_arg->dataCallback();
+    const char * data = resp_arg->data;
     httpd_handle_t hd = resp_arg->hd;
     int fd = resp_arg->fd;
     httpd_ws_frame_t ws_pkt;
@@ -139,7 +141,7 @@ static void sendDataWebsocket(void *arg)
 
     httpd_ws_send_frame_async(hd, fd, &ws_pkt);
     free(resp_arg);
-    free((void*)data);
+    // free((void*)data);
 }
 
 static void send_ping(void *arg)
@@ -253,6 +255,7 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
 void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void))
 {
     bool send_messages = true;
+    // char buffer[1536] = {0};
 
     // Send async message to all connected clients that use websocket protocol every 1 seconds
     while (send_messages) {
@@ -261,6 +264,11 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
         if (!*server) { // httpd might not have been created by now
             continue;
         }
+        char* json = dataCallback();
+        cJSON_Minify(json);
+        // memcpy(buffer, json, strlen(json)+1);
+        // ESP_LOGW(TAG, "%s", buffer);
+
         size_t clients = max_clients;
         int    client_fds[max_clients];
         esp_err_t ret = httpd_get_client_list(*server, &clients, client_fds);
@@ -272,18 +280,19 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
                     struct async_resp_arg *resp_arg = (struct async_resp_arg*)malloc(sizeof(struct async_resp_arg));
                     resp_arg->hd = *server;
                     resp_arg->fd = sock;
-                    resp_arg->dataCallback = dataCallback;
-                    if (httpd_queue_work(resp_arg->hd, sendDataWebsocket, resp_arg) != ESP_OK) {
-                        ESP_LOGE(TAG, "httpd_queue_work failed!");
-                        send_messages = false;
-                        break;
-                    }
-                    // sendDataWebsocket(resp_arg);
+                    resp_arg->data = json;
+                    // if (httpd_queue_work(resp_arg->hd, sendDataWebsocket, resp_arg) != ESP_OK) {
+                    //     ESP_LOGE(TAG, "httpd_queue_work failed!");
+                    //     send_messages = false;
+                    //     break;
+                    // }
+                    sendDataWebsocket(resp_arg);
                 }
             }
         } else {
             ESP_LOGE(TAG, "httpd_get_client_list failed! error code: %d, %s", ret, esp_err_to_name(ret));
             return;
         }
+        free(json);
     }
 }

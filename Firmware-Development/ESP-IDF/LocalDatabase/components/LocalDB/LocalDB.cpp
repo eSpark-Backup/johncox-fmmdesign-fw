@@ -79,9 +79,8 @@ void LocalDB::createTable(const char *tableName, const char *columns)
 
 int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, char**), void *callbackData) 
 {
-    char *zErrMsg = nullptr;
+    char *zErrMsg = NULL;
     int rc = SQLITE_PERM;
-    // ESP_LOGI(TAG, "%s", sql);
     if(lock())
     {
         // int64_t start = esp_timer_get_time();
@@ -98,9 +97,14 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
         {
             // ESP_LOGI(TAG, "Operation done successfully");
         }
+
         // ESP_LOGI(TAG, "Time taken: %lldms", (esp_timer_get_time() - start) / 1000);
         unlock();
     }
+
+    if(zErrMsg != NULL)
+        ESP_LOGW(TAG, "zErrMsg not null. Memory leak detected.");
+
     return rc;
 }
 

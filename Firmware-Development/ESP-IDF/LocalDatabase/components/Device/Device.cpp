@@ -396,7 +396,7 @@ void Device::insertSensorValues()
     {
         float val;
         if (Sensors::isNMEA200BUSAvailable())
-            // val = Sensors::getSpeed();       // Implement speed fetching sequence from NMEA200 bus
+            // val = Sensors::getSpeed();       // Implement speed fetching sequence from NMEA2000 bus
             asm volatile ("nop"::);
         else
             val = speedDistribution(gen);
@@ -517,39 +517,32 @@ void Device::init()
 
     createDataAcquisitionTask();
 
-    // db.remove("SensorData");
-
-    // std::map<std::string, std::string> updateValues = {{"engine_id", "1005"}, {"fuel_return", "20.75"}};
-    // std::map<std::string, std::string> filter = {{"engine_id", "1003"}};
-    // db.update("SensorData", updateValues, filter);
-
-    auto searchResults = dbPtr.search("SensorData", {"*"}, {});
 
     // // Display the search results
-    for (const auto& result : searchResults) 
-    {
-        for (const auto& pair : result) {
-            printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
-        }
-        printf("\n");
-    }
+    // for (const auto& result : searchResults) 
+    // {
+    //     for (const auto& pair : result) {
+    //         printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
+    //     }
+    //     printf("\n");
+    // }
 
-    std::map<std::string, std::string> filter = {
-        {"engine_id", "1005"},
-        {"temperature_return", "30.2"},
-    };
-    dbPtr.remove("SensorData", filter);
+    // std::map<std::string, std::string> filter = {
+    //     {"engine_id", "1005"},
+    //     {"temperature_return", "30.2"},
+    // };
+    // dbPtr.remove("SensorData", filter);
 
 
-    auto results = dbPtr.search("SensorData", {"*"}, {});
+    // auto results = dbPtr.search("SensorData", {"*"}, {});
 
-    // // Display the search results
-    for (const auto& result : results) {
-        for (const auto& pair : result) {
-            printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
-        }
-        printf("\n");
-    }
+    // // // Display the search results
+    // for (const auto& result : results) {
+    //     for (const auto& pair : result) {
+    //         printf("%s = %s\n", pair.first.c_str(), pair.second.c_str());
+    //     }
+    //     printf("\n");
+    // }
 
     // db.printLastError();
 
