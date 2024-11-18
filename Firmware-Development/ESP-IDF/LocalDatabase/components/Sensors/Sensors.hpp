@@ -24,6 +24,9 @@
 #define pulseToLiter                (FLOWSENSOR_LEAST_COUNT / 1000.0)
 // #define STACK_DEPTH                 (60/(FLOWSENSOR_READING_PERIOD/1000))
 
+#define FUEL_SENSOR_MAX_VOLT        2.50f
+#define FUEL_SENSOR_MIN_VOLT        0.34f
+
 #define ENGINE1_SUPPLY_FLOW_UNIT    PCNT_UNIT_0
 #define ENGINE1_SUPPLY_FLOW_GPIO    GPIO_NUM_25
 #define ENGINE1_SUPPLY_TEMP_MUX     CONFIG_MUX_AIN0
@@ -160,7 +163,7 @@ class Sensors
         static TimerHandle_t _xHandle;
 
         // static SensorStack   *_sensorStacks[ENGINE_MAX*2];
-        static float     _sensorStacks[ENGINE_MAX*2];
+        static float     _flow_sensor_stack[ENGINE_MAX*2];
         static PCNT_CHANNEL_s _flow_sensors[ENGINE_MAX*2];
 };
 

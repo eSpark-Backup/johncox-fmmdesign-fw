@@ -255,7 +255,6 @@ static void connect_handler(void* arg, esp_event_base_t event_base,
 void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void))
 {
     bool send_messages = true;
-    // char buffer[1536] = {0};
 
     // Send async message to all connected clients that use websocket protocol every 1 seconds
     while (send_messages) {
@@ -266,8 +265,6 @@ void wss_server_send_messages(httpd_handle_t* server, char* (*dataCallback)(void
         }
         char* json = dataCallback();
         cJSON_Minify(json);
-        // memcpy(buffer, json, strlen(json)+1);
-        // ESP_LOGW(TAG, "%s", buffer);
 
         size_t clients = max_clients;
         int    client_fds[max_clients];

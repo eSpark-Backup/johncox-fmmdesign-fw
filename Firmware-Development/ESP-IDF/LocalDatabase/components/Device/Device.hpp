@@ -9,6 +9,10 @@
 #include <esp_err.h>
 #include "LocalDB.hpp"
 
+#define FAULT_INDICATION_LED        GPIO_NUM_4
+#define POWER_INDICATION_LED        GPIO_NUM_23
+#define NMEA_INDICATION_LED         GPIO_NUM_19
+
 #define SENSOR_DATA_ACQUIRE_TIME    5000
 
 #define FILENAME "/test"

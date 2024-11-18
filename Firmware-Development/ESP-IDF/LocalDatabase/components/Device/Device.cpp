@@ -184,7 +184,6 @@ void Device::createTables()
     dbPtr.createTable("FuelManagement", "id INTEGER PRIMARY KEY NOT NULL, "
                                       "engine_id INTEGER NOT NULL, "
                                       "total_fuel_burned INTEGER NOT NULL, "
-                                      "remaining_fuel INTEGER NOT NULL, "
                                       "current_fuel_consumption INTEGER NOT NULL, "
                                       "distance_to_empty INTEGER NOT NULL");
 
@@ -200,10 +199,7 @@ void Device::createTables()
     // Create Vessel table
     dbPtr.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
                              "speed FLOAT NOT NULL, "
-                             "tank1_fuel FLOAT NOT NULL, "
-                             "tank2_fuel FLOAT NOT NULL, "
-                             "tank3_fuel FLOAT NOT NULL, "
-                             "tank4_fuel FLOAT NOT NULL");
+                             "tanks TEXT NOT NULL");
 
     // Create UserCredentials table
     dbPtr.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
@@ -361,7 +357,7 @@ void Device::insertSensorValues()
 
     // Initialize random number generator with the seed
     std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
-    std::uniform_real_distribution<float> fuelDistribution(1, 100.0);
+    std::uniform_real_distribution<float> fuelDistribution(0, 100.0);
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
 
@@ -412,6 +408,7 @@ void Device::insertSensorValues()
     }
     float vesselSpeed = fetchSpeedData();
 
+    int error = SQLITE_OK;
     // ESP_LOGW(TAG, "================");
     for (int i = 1; i <= 2; i++)
     {
@@ -424,33 +421,35 @@ void Device::insertSensorValues()
             {"temperature_supply", std::to_string(fetchTempData((ENGINE_e)(i-1), PROBE_1))},
             {"temperature_return", std::to_string(fetchTempData((ENGINE_e)(i-1), PROBE_2))},
         };
-        dbPtr.insert("SensorData", sensorData);
+        error = dbPtr.insert("SensorData", sensorData);
         
 
         std::map<std::string, std::string> fuelManagement = {
             {"engine_id",          std::to_string(i)},
             {"total_fuel_burned",  std::to_string(fuel_burned[i-1])},
-            {"remaining_fuel",     std::to_string(remainingFuel)},
             {"current_fuel_consumption",     std::to_string(currentFuelConsumption)},
             {"distance_to_empty",  std::to_string(vesselSpeed*((remainingFuel/currentFuelConsumption)/60))},        // in Km
         };
-        dbPtr.insert("FuelManagement", fuelManagement);
+        error = dbPtr.insert("FuelManagement", fuelManagement);
     }
 
     // Insert data into Vessel table
     std::map<std::string, std::string> VesselData = {
         {"speed", std::to_string(vesselSpeed)},
-        {"tank1_fuel", std::to_string(tankData[TANK_1])},
-        {"tank2_fuel", std::to_string(tankData[TANK_2])},
-        {"tank3_fuel", std::to_string(tankData[TANK_3])},
-        {"tank4_fuel", std::to_string(tankData[TANK_4])},
+        {"tanks", "[" + std::to_string(tankData[TANK_1]) + ","
+                      + std::to_string(tankData[TANK_2]) + ","
+                      + std::to_string(tankData[TANK_3]) + ","
+                      + std::to_string(tankData[TANK_4])
+                      + "]"                                     },
     };
-    dbPtr.insert("Vessel", VesselData);
+    error = dbPtr.insert("Vessel", VesselData);
 
     // printf("Vessel:\n");
     // for (const auto& pair : VesselData) {
     //     printf("%s: %s\n", pair.first.c_str(), pair.second.c_str());
     // }
+    if(error)
+        gpio_set_level(FAULT_INDICATION_LED, 1);
 }
 
 void acquireSensorData(void * pvParameters)
@@ -502,6 +501,11 @@ void Device::createDataAcquisitionTask()
 
 void Device::init() 
 {
+    gpio_set_direction(POWER_INDICATION_LED, GPIO_MODE_OUTPUT);
+    gpio_set_direction(FAULT_INDICATION_LED, GPIO_MODE_OUTPUT);
+    gpio_set_direction(NMEA_INDICATION_LED, GPIO_MODE_OUTPUT);
+
+    gpio_set_level(POWER_INDICATION_LED, 1);
     dbPtr.init(Storage::MOUNT_POINT);
     // Storage::storageStats();
 

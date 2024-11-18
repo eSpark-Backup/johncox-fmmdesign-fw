@@ -12,7 +12,7 @@ esp_err_t Sensors::_temp_sensor_state = ESP_FAIL;
 esp_err_t Sensors::_is_NMEA200_available = ESP_FAIL;
 
 TimerHandle_t Sensors::_xHandle = NULL;
-float  Sensors::_sensorStacks[ENGINE_MAX*2];
+float  Sensors::_flow_sensor_stack[ENGINE_MAX*2];
 PCNT_CHANNEL_s Sensors::_flow_sensors[ENGINE_MAX*2] = {
     { .unit = ENGINE1_SUPPLY_FLOW_UNIT, .gpio = ENGINE1_SUPPLY_FLOW_GPIO },
     { .unit = ENGINE1_RETURN_FLOW_UNIT, .gpio = ENGINE1_RETURN_FLOW_GPIO },
@@ -46,11 +46,11 @@ esp_err_t Sensors::init()
     for(int i=0; i<(ENGINE_MAX*2); i++)
     {
         pcntInit(_flow_sensors[i].unit, _flow_sensors[i].gpio);
-        _sensorStacks[i] = 0;
-        // _sensorStacks[i] = new SensorStack();
+        _flow_sensor_stack[i] = 0;
+        // _flow_sensor_stack[i] = new SensorStack();
     }
 
-    ESP_LOGI(TAG, "Starting Flow Rate Task.");
+    ESP_LOGI(TAG, "Creating Flow Rate Task.");
     _xHandle = xTimerCreate("acquireFuelFlow", (FLOWSENSOR_READING_PERIOD / portTICK_PERIOD_MS),
                                 pdTRUE, NULL, Sensors::flowRateTask);
 
@@ -111,7 +111,9 @@ float Sensors::getFuel(TANK_e tank)
     }
 
     volts = adsRead(ADS1115_TANK_SENSOR_ADDR, ads_channel, TANK_SENSOR_ALERT_GPIO);
-    fuel = ((2.5-volts)/(2.5-0.34)) * 100;          //  (vMAX-v)/(vMAX-vMIN)
+    fuel = ((FUEL_SENSOR_MAX_VOLT-volts)/(FUEL_SENSOR_MAX_VOLT-FUEL_SENSOR_MIN_VOLT)) * 100;          //  (vMAX-v)/(vMAX-vMIN)        (value returned in percent)
+    if(fuel<0)
+        fuel = 0;
     // ESP_LOGI(TAG, "Volts is %f fuel is %f for tank %d mux %x", volts, fuel, tank, ads_channel);
     return fuel;
 }
@@ -121,14 +123,14 @@ float Sensors::getFlow(ENGINE_e engine, PROBE_e flow)
     switch(engine)
     {
         case ENGINE_1:
-            if(SUPPLY_FLOW == flow)        {   return _sensorStacks[0];}//Sensors::calculateAverage(_sensorStacks[0]);  }
-            else if(RETURN_FLOW == flow)   {   return _sensorStacks[1];}//Sensors::calculateAverage(_sensorStacks[1]);  }
-            else                        {   return 0;   }
+            if(SUPPLY_FLOW == flow)        {   return _flow_sensor_stack[0];}//Sensors::calculateAverage(_flow_sensor_stack[0]);  }
+            else if(RETURN_FLOW == flow)   {   return _flow_sensor_stack[1];}//Sensors::calculateAverage(_flow_sensor_stack[1]);  }
+            else                           {   return 0;   }
             break;
         case ENGINE_2:
-            if(SUPPLY_FLOW == flow)        {   return _sensorStacks[2];}//Sensors::calculateAverage(_sensorStacks[2]);  }
-            else if(RETURN_FLOW == flow)   {   return _sensorStacks[3];}//Sensors::calculateAverage(_sensorStacks[3]);  }
-            else                        {   return 0;   }
+            if(SUPPLY_FLOW == flow)        {   return _flow_sensor_stack[2];}//Sensors::calculateAverage(_flow_sensor_stack[2]);  }
+            else if(RETURN_FLOW == flow)   {   return _flow_sensor_stack[3];}//Sensors::calculateAverage(_flow_sensor_stack[3]);  }
+            else                           {   return 0;   }
             break;
         default:
             return 0;
@@ -251,10 +253,10 @@ void Sensors::flowRateTask(TimerHandle_t handle)
     {
         pcnt_get_counter_value(_flow_sensors[i].unit, &counts);
         pcnt_counter_clear(_flow_sensors[i].unit);
-        // pushValue(_sensorStacks[i], counts);
+        // pushValue(_flow_sensor_stack[i], counts);
         float pulses_per_second = (float)counts / (FLOWSENSOR_READING_PERIOD / 1000.0);
-        _sensorStacks[i] = pulses_per_second * 60.0 * 60.0 * pulseToLiter;              // store value in (litres per hour) unit
-        // ESP_LOGW(TAG, "Placed value %d in _sensorStacks[%d]", counts, i);
+        _flow_sensor_stack[i] = pulses_per_second * 60.0 * 60.0 * pulseToLiter;              // store value in (litres per hour) unit
+        // ESP_LOGW(TAG, "Placed value %d in _flow_sensor_stack[%d]", counts, i);
     }
 }
 

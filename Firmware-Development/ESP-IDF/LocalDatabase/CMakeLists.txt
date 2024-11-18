@@ -7,5 +7,5 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(EXTRA_COMPONENT_DIRS libraries)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-set(PROJECT_VER "v1.0.4")
+set(PROJECT_VER "v1.0.5")
 project(LocalDatabase)

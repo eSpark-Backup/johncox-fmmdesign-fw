@@ -24,8 +24,8 @@ static const char *TAG = "app_main";
 #define CRITICAL_HEAP_VAL   10
 #define REPORTING_TIME   20000
 #define HEAP_CHECK_TIME  500
-#define TEST_WITHOUT_APP 0
 
+#define TEST_WITHOUT_APP 0
 
 extern "C" void app_main() 
 {
