@@ -215,11 +215,18 @@ namespace Parser {
     {
         cJSON *root = cJSON_CreateObject(); // Create JSON root object
 
+        cJSON *tanksArray = cJSON_CreateArray();
         // Add additional parameters to the root object if provided
-        for (const auto& [key, value] : additionalParams) 
+        for (const auto& [key, value] : additionalParams)
         {
-            cJSON_AddStringToObject(root, key.c_str(), value.c_str());
+            if(key.find("tank") != std::string::npos)
+            {
+                cJSON_AddItemToArray(tanksArray, cJSON_CreateNumber(value.c_str()));
+            }
+            else
+                cJSON_AddStringToObject(root, key.c_str(), value.c_str());
         }
+        cJSON_AddItemToObject(root, "tanks", tanksArray);
         
         cJSON *dataArray = cJSON_CreateArray();
         for (auto const& data : jsonData)

@@ -199,7 +199,10 @@ void Device::createTables()
     // Create Vessel table
     dbPtr.createTable("Vessel", "id INTEGER PRIMARY KEY NOT NULL, "
                              "speed FLOAT NOT NULL, "
-                             "tanks TEXT NOT NULL");
+                             "tank1_fuel FLOAT NOT NULL, "
+                             "tank2_fuel FLOAT NOT NULL, "
+                             "tank3_fuel FLOAT NOT NULL, "
+                             "tank4_fuel FLOAT NOT NULL"        );
 
     // Create UserCredentials table
     dbPtr.createTable("UserCredentials", "id TINYINT PRIMARY KEY NOT NULL,"
@@ -436,11 +439,10 @@ void Device::insertSensorValues()
     // Insert data into Vessel table
     std::map<std::string, std::string> VesselData = {
         {"speed", std::to_string(vesselSpeed)},
-        {"tanks", "[" + std::to_string(tankData[TANK_1]) + ","
-                      + std::to_string(tankData[TANK_2]) + ","
-                      + std::to_string(tankData[TANK_3]) + ","
-                      + std::to_string(tankData[TANK_4])
-                      + "]"                                     },
+        {"tank1_fuel", std::to_string(tankData[TANK_1])},
+        {"tank2_fuel", std::to_string(tankData[TANK_2])},
+        {"tank3_fuel", std::to_string(tankData[TANK_3])},
+        {"tank4_fuel", std::to_string(tankData[TANK_4])},
     };
     error = dbPtr.insert("Vessel", VesselData);
 
