@@ -221,7 +221,7 @@ namespace Parser {
         {
             if(key.find("tank") != std::string::npos)
             {
-                cJSON_AddItemToArray(tanksArray, cJSON_CreateNumber(value.c_str()));
+                cJSON_AddItemToArray(tanksArray, cJSON_CreateString(value.c_str()));
             }
             else
                 cJSON_AddStringToObject(root, key.c_str(), value.c_str());

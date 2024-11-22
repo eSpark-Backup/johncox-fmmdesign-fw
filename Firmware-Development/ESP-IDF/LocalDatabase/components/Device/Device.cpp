@@ -363,11 +363,15 @@ void Device::insertSensorValues()
     std::uniform_real_distribution<float> fuelDistribution(0, 100.0);
     std::uniform_real_distribution<float> temperatureDistribution(20.0, 40.0);
     std::uniform_real_distribution<float> speedDistribution(50.0, 80.0);
+    std::uniform_real_distribution<float> flowDistribution(0.0, 960.0);
 
-    auto fetchFlowData = [](ENGINE_e engine, PROBE_e probe)
+    auto fetchFlowData = [&](ENGINE_e engine, PROBE_e probe)
     {
         float val;
-        val = Sensors::getFlow(engine, probe);
+        if (Sensors::isTempSensorConnected())
+            val = Sensors::getFlow(engine, probe);
+        else
+            val = flowDistribution(gen);
         return val;
     };
 
@@ -402,9 +406,9 @@ void Device::insertSensorValues()
         return val;
     };
 
-    float tankData[ENGINE_MAX*2] = {0};
+    float tankData[TANK_MAX] = {0};
     float remainingFuel = 0;
-    for(int i=0; i<(ENGINE_MAX*2); i++)
+    for(int i=0; i<(TANK_MAX); i++)
     {
         tankData[(TANK_e)i] = fetchFuelData((TANK_e)i) * fuel_factor;
         remainingFuel += tankData[(TANK_e)i];
@@ -415,8 +419,8 @@ void Device::insertSensorValues()
     // ESP_LOGW(TAG, "================");
     for (int i = 1; i <= 2; i++)
     {
-        float currentFuelConsumption = fetchFlowData((ENGINE_e)(i-1), SUPPLY_FLOW) - fetchFlowData((ENGINE_e)(i-1), RETURN_FLOW);
-        fuel_burned[i-1] += (currentFuelConsumption*((SENSOR_DATA_ACQUIRE_TIME/1000.0f)/60.0f));
+        float currentFuelConsumption = abs(fetchFlowData((ENGINE_e)(i-1), SUPPLY_FLOW) - fetchFlowData((ENGINE_e)(i-1), RETURN_FLOW));
+        fuel_burned[i-1] += (currentFuelConsumption*((SENSOR_DATA_ACQUIRE_TIME/1000.0f)/3600.0f));
 
         std::map<std::string, std::string> sensorData = {
             {"engine_id",          std::to_string(i)},

@@ -105,6 +105,7 @@ typedef enum
     TANK_2,
     TANK_3,
     TANK_4,
+    TANK_MAX
 }TANK_e;
 typedef struct
 {
