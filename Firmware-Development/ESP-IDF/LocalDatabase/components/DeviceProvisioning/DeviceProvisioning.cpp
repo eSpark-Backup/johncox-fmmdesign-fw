@@ -85,6 +85,11 @@ void DeviceProvisioning::eventHandler(void *arg, esp_event_base_t event_base,
                 xEventGroupSetBits(wifi_event_group, PROV_END_EVENT);
                 ESP_LOGI(TAG, "Event: WIFI_PROV_DEINIT");
                 HttpServer::start();
+                if (!Device::isDomainNameValid())
+                {
+                    ESP_LOGW(TAG, "Domain name is invalid, restarting provisioning sequence.");
+                    reset();
+                }
                 break;
             }
             default:
@@ -195,7 +200,6 @@ void DeviceProvisioning::wifiConnSTA(void)
         retry_count--;
         vTaskDelay(CONFIG_PROV_MGR_MAX_RETRY_CNT_DELAY/portTICK_RATE_MS);
     } while (retry_count && ESP_OK != err);
-    // } while (ESP_OK != err);
 
     if(ESP_OK == err)
     {
@@ -519,6 +523,7 @@ esp_err_t DeviceProvisioning::reset(void)
     else
     {
         wifi_state = WIFI_DISCONNECTED;
+        is_provisioned = false;
         sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
         return ESP_OK;
     }

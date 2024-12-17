@@ -15,6 +15,7 @@
 
 #define SENSOR_DATA_ACQUIRE_TIME    5000
 
+#define DOMAIN_NAME_PREFIX "timesp"
 #define FILENAME "/test"
 
 typedef struct
@@ -48,6 +49,7 @@ class Device
         static void init();
         static esp_err_t saveDomainName(const std::string& domainName);
         static std::string getDomainName();
+        static bool isDomainNameValid();
         static std::string getMAC();
 };
 

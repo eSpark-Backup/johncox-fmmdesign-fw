@@ -568,3 +568,22 @@ std::string Device::getDomainName()
 {
     return DeviceStorage::getDomainName();
 }
+
+bool Device::isDomainNameValid()
+{
+    std::string domainName = DeviceStorage::getDomainName();
+
+    if(!domainName.empty())
+    {
+        size_t pos = domainName.find(DOMAIN_NAME_PREFIX);
+        if(pos != std::string::npos)
+        {
+            if(pos == 0)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
