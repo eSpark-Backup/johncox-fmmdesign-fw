@@ -5,7 +5,7 @@
 #define SQLITE_TEMP_STORE                    1
 #define SQLITE_SYSTEM_MALLOC                 1
 #define SQLITE_OS_OTHER                      1
-#define SQLITE_THREADSAFE                    0
+#define SQLITE_THREADSAFE                    1      // changed
 #define SQLITE_MUTEX_APPDEF                  1
 #define SQLITE_SECURE_DELETE                 0
 #define SQLITE_SMALL_STACK                   1
@@ -78,7 +78,7 @@
 #undef SQLITE_OMIT_VACUUM
 #undef SQLITE_OMIT_VIEW
 #undef SQLITE_OMIT_VIRTUALTABLE
-#define SQLITE_OMIT_WAL                      1
+// #define SQLITE_OMIT_WAL                      1      // changed
 #undef SQLITE_OMIT_WSD
 #define SQLITE_OMIT_XFER_OPT                 1
 #define SQLITE_PERFORMANCE_TRACE             1

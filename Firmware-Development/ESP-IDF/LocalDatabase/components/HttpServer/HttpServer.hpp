@@ -12,6 +12,7 @@ class HttpServer
 {
     public:
         static void init(char* (*callback)(void) = NULL);
+        static void deInit();
         static void start(void);
 
         static esp_err_t stopServer();
@@ -23,7 +24,6 @@ class HttpServer
         }
 
     private:
-
         static esp_err_t startServer(void * args);
 
         static void unregisterUriHandlers(void);

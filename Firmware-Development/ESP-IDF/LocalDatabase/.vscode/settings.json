@@ -60,6 +60,10 @@
         "fstream": "cpp",
         "*.ipp": "cpp",
         "*.inc": "cpp",
-        "errno.h": "c"
-    }
+        "errno.h": "c",
+        "sdmmc_cmd.h": "c"
+    },
+    "C_Cpp.intelliSenseEngine": "default",
+    "idf.espIdfPathWin": "c:\\.toolchains\\esp\\v4.4.6\\idf\\v4.4.6\\esp-idf",
+    "idf.toolsPathWin": "c:\\.toolchains\\esp\\v4.4.6\\.espressif"
 }

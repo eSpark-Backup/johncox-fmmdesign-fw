@@ -16,7 +16,7 @@
 #define SENSOR_DATA_ACQUIRE_TIME    5000
 
 #define DOMAIN_NAME_PREFIX "timesp"
-#define FILENAME "/test"
+#define FILENAME "/FMM_Database"
 
 typedef struct
 {
@@ -39,8 +39,8 @@ class Device
         static void createDataAcquisitionTask();
         
     public:
-        static void insertRandomValues(LocalDB& db);
-        static void insertHardCodeValues();
+        // static void insertRandomValues(LocalDB& db);
+        // static void insertHardCodeValues();
         static void insertSensorValues();
         static void startDataAcquisitionTask();
         static void suspendDataAcquisitionTask();
@@ -51,6 +51,8 @@ class Device
         static std::string getDomainName();
         static bool isDomainNameValid();
         static std::string getMAC();
+        static bool openDatabase();
+        static void closeDatabase();
 };
 
 #endif // DEVICE_HPP

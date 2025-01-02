@@ -92,6 +92,8 @@ int LocalDB::executeSQL(const char *sql, int (*callback)(void*, int, char**, cha
             ESP_LOGW(TAG, "QUERY: %s", sql);
             Storage::storageStats();
             sqlite3_free(zErrMsg);
+            if(zErrMsg != NULL)
+                zErrMsg = NULL;
         } 
         else 
         {

@@ -50,12 +50,6 @@ extern "C" void app_main()
     ESP_LOGE(TAG, "%s", Device::getDomainName().c_str());
     
     devProv.start();
-    // if (Device::getDomainName().empty())                             // moved this sequence to
-    // {                                                                // deviceProvisioning eventHandler.
-    //   ESP_LOGW(TAG, "Domain name not found, restarting device.");    // If valid domain name is not
-    //   devProv.reset();                                               // found, than provisioning
-    //   // esp_restart();                                              // sequence would restart.
-    // }
     
     ESP_LOGE(TAG, "Assigned Domain Name: %s", Device::getDomainName().c_str());
     MDNSService::start(Device::getDomainName().c_str());

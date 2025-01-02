@@ -524,6 +524,7 @@ esp_err_t DeviceProvisioning::reset(void)
     {
         wifi_state = WIFI_DISCONNECTED;
         is_provisioned = false;
+        // Device::suspendDataAcquisitionTask();
         sendQueue(WIFI_PROVISION, wifi_prov_queue, __func__);
         return ESP_OK;
     }

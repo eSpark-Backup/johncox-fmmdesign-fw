@@ -2,12 +2,3 @@
 sdkconfig
 sdkconfig.old
 managed_components/
-
-/Firmware-Development/ESP-IDF/LocalDatabase/build/*
-!/Firmware-Development/ESP-IDF/LocalDatabase/build/bootloader/
-!/Firmware-Development/ESP-IDF/LocalDatabase/build/partition_table/
-/Firmware-Development/ESP-IDF/LocalDatabase/build/bootloader/*
-/Firmware-Development/ESP-IDF/LocalDatabase/build/partition_table/*
-!/Firmware-Development/ESP-IDF/LocalDatabase/build/*.bin
-!/Firmware-Development/ESP-IDF/LocalDatabase/build/bootloader/*.bin
-!/Firmware-Development/ESP-IDF/LocalDatabase/build/partition_table/*.bin

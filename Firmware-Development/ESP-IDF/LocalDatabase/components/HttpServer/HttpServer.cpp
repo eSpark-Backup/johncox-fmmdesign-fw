@@ -44,15 +44,34 @@ void HttpServer::init(char* (*callback)(void))
 {
     BaseType_t xReturned;
 
-    xReturned = xTaskCreatePinnedToCore(
-                    wssServerTask,          /* Function that implements the task. */
-                    "websocketTask",        /* Text name for the task. */
-                    STACK_SIZE,             /* Stack size in words, not bytes. */
-                    ( void * ) callback,    /* Parameter passed into the task. */
-                    tskIDLE_PRIORITY+3,     /* Priority at which the task is created. */
-                    &websocketTaskHandle,// ); /* Used to pass out the created task's handle. */
-                    1 ); /* Core on which this task is attached to. */
-    ESP_LOGI(TAG, "Websocket task created.");
+    if(HttpServer::websocketTaskHandle == NULL)
+    {
+        xReturned = xTaskCreatePinnedToCore(
+                                wssServerTask,          /* Function that implements the task. */
+                                "websocketTask",        /* Text name for the task. */
+                                STACK_SIZE,             /* Stack size in words, not bytes. */
+                                ( void * ) callback,    /* Parameter passed into the task. */
+                                tskIDLE_PRIORITY+3,     /* Priority at which the task is created. */
+                                &HttpServer::websocketTaskHandle,// ); /* Used to pass out the created task's handle. */
+                                1 ); /* Core on which this task is attached to. */
+        ESP_LOGI(TAG, "Websocket task created.");
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Websocket task already running.");
+    }
+}
+
+void HttpServer::deInit()
+{
+    if(HttpServer::websocketTaskHandle)
+    {
+        vTaskDelete(HttpServer::websocketTaskHandle);
+        HttpServer::websocketTaskHandle = NULL;
+        ESP_LOGW(TAG, "Websocket task terminated.");
+    }
+    else
+        ESP_LOGW(TAG, "Websocket task already closed.");
 }
 
 void HttpServer::wssServerTask(void* args) {

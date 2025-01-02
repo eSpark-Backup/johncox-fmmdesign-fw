@@ -80,7 +80,7 @@ private:
     }
 };
 
-void testDatabases();
+// void testDatabases();
 const char* concatenateFilePath(const char* base, const char* filename);
 
 #endif /* LOCAL_DB_H */

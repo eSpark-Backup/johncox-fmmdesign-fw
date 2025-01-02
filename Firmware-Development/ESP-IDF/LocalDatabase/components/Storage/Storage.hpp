@@ -4,11 +4,18 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "sdmmc_cmd.h"
+#include <esp_littlefs.h>
+
+#define USE_LITTLEFS
 
 #define MOUNT_POINT_SPIFFS "/spiffs"
 #define MOUNT_POINT_NAND   "/nand"
 
 #define CONFIG_FORMAT_IF_MOUNT_FAILED
+
+#define NAND_PAGE_SIZE      512
+// #define NAND_PAGE_SIZE      SOC_SPI_MAXIMUM_BUFFER_SIZE
+#define NAND_BLOCK_SIZE     (64 * NAND_PAGE_SIZE)
 
 // Onboard NAND memory interface
 #define NAND_MISO  GPIO_NUM_12
